@@ -1,0 +1,20 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Explicitly declare text files
+*.js text eol=lf encoding=UTF-8
+*.jsx text eol=lf encoding=UTF-8
+*.css text eol=lf encoding=UTF-8
+*.html text eol=lf encoding=UTF-8
+*.json text eol=lf encoding=UTF-8
+*.md text eol=lf encoding=UTF-8
+*.cs text eol=lf encoding=UTF-8
+*.csproj text eol=lf encoding=UTF-8
+
+# Denote binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.db binary
