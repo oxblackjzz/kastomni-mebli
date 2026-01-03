@@ -1,0 +1,25 @@
+# .NET
+bin/
+obj/
+*.db
+*.user
+*.suo
+.vs/
+*.log
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+appsettings.*.json
+!appsettings.json
+!appsettings.Development.json
