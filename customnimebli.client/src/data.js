@@ -1,6 +1,4 @@
-import textsJson from './texts.json';
-
-// Ukrainian texts - encoded to avoid build issues
+// Ukrainian texts for the furniture website
 export const ukText = {
   brandName: "Кастомні Меблі",
   tagline: "Під ключ",

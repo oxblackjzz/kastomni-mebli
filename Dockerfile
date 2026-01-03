@@ -1,15 +1,16 @@
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# Install Node.js for Vite build
-RUN apt-get update && apt-get install -y nodejs npm
+# Install Node.js 20 for Vite build
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs
 
 # Copy project files
 COPY CustomniMebli.Server/*.csproj ./CustomniMebli.Server/
-COPY customnimebli.client/*.esproj ./customnimebli.client/
 COPY customnimebli.client/package*.json ./customnimebli.client/
 
-# Restore dependencies
+# Restore .NET dependencies
 WORKDIR /src/CustomniMebli.Server
 RUN dotnet restore
 
