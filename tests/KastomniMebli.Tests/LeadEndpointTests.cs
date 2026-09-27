@@ -14,50 +14,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace KastomniMebli.Tests;
 
-/// <summary>Сайт цілком, але з базою в пам'яті й підміненим Telegram.</summary>
-public sealed class SiteFactory : WebApplicationFactory<Program>
-{
-    public FakeNotifier Notifier { get; } = new();
-    public int RateLimitPerHour { get; init; } = 1000;
-    private readonly string _dbName = "leads-" + Guid.NewGuid();
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Testing");
-        builder.ConfigureTestServices(services =>
-        {
-            services.RemoveAll<DbContextOptions<AppDbContext>>();
-            services.RemoveAll<IDbContextOptionsConfiguration<AppDbContext>>();
-            services.AddDbContext<AppDbContext>(o => o.UseInMemoryDatabase(_dbName));
-
-            services.RemoveAll<ILeadNotifier>();
-            services.AddSingleton<ILeadNotifier>(Notifier);
-
-            services.Configure<LeadOptions>(o => o.RateLimitPerHour = RateLimitPerHour);
-        });
-    }
-
-    public List<Lead> Leads()
-    {
-        using var scope = Services.CreateScope();
-        return scope.ServiceProvider.GetRequiredService<AppDbContext>().Leads.AsNoTracking().ToList();
-    }
-}
-
-public sealed class FakeNotifier : ILeadNotifier
-{
-    public List<Lead> Sent { get; } = [];
-    public bool Fail { get; set; }
-
-    public Task NotifyAsync(Lead lead, CancellationToken ct)
-    {
-        if (Fail)
-            throw new HttpRequestException("Telegram недоступний");
-        Sent.Add(lead);
-        return Task.CompletedTask;
-    }
-}
-
 public class LeadEndpointTests
 {
     private static FormUrlEncodedContent Form(params (string Key, string Value)[] fields) =>
@@ -99,7 +55,14 @@ public class LeadEndpointTests
         Assert.Equal("new", lead.Status);
         Assert.NotNull(lead.TelegramSentAt);
         Assert.Null(lead.TelegramError);
-        Assert.Single(factory.Notifier.Sent);
+
+        // Заявка одразу стала замовленням у CRM.
+        var order = Assert.Single(factory.Orders());
+        Assert.Equal(lead.Id, order.LeadId);
+        Assert.Equal("new", order.Status);
+        Assert.Equal("site", order.Source);
+        Assert.Equal("+380671234567", order.Client.Phone);
+        Assert.Equal(order.Id, Assert.Single(factory.Notifier.Sent).OrderId);
     }
 
     [Fact]
