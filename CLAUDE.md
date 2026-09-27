@@ -23,11 +23,24 @@
 4. Автопостинг: Telegram-канал, потім Facebook/Instagram (Meta Graph API).
 5. Онлайн-конструктор меблів — пізніше, зараз НЕ чіпати.
 
-**Поточний етап:** 1 — реалізовано й запушено в `oxblackjzz/kastomni-mebli` (гілка `main`; стара історія — `archive/prototype-2026-01`). Чекає: створення сервісу на Render (окремий платний сервіс — тариф $7 зайнятий MES), Telegram-бота, контактів.
+**Поточний етап:** 2 (CRM) — реалізовано. Етап 1 працює на https://kastomni-mebli.onrender.com (репо `oxblackjzz/kastomni-mebli`, гілка `main`; стара історія — `archive/prototype-2026-01`). Відкрито від власника: Telegram-бот, телефон/Telegram для сайту, `ADMIN_*` на Render, перевірка FAQ. Далі — етап 3 (B2B), лише після плану й «ок».
+
+## CRM (етап 2)
+
+- Усе в одному застосунку: `/crm`. Сторінки CRM — Interactive Server без пререндеру (`CrmRender.Mode`), `blazor.web.js` підключається лише на `/crm` (App.razor), лендінг лишається статичним.
+- `Components/Crm/_Imports.razor` задає `@layout CrmLayout` і `[Authorize]` — тому **макети лежать у `Components/Layout`** (у папці Crm макет загортав би сам себе → нескінченний цикл). Сторінки входу/403 — `Components/Pages/CrmLogin|CrmDenied` (поза Crm, без [Authorize]).
+- Вхід: cookie-автентифікація, хеш паролів — `PasswordHasher` з ASP.NET Identity (без нових пакетів). Форма входу постить на `/crm/uviyty` (окремо від сторінки `/crm/vhid`, бо сторінка Blazor теж приймає POST), антифорджері перевіряється вручну (протермінований токен → `?error=expired`, не 500). Кожен запит звіряє cookie з БД (активний, роль, `security_stamp`). Перший адмін — з `ADMIN_LOGIN`/`ADMIN_PASSWORD`, лише якщо користувачів немає.
+- Ключі DataProtection — у таблиці `data_protection_keys` (`DbXmlRepository`), щоб редеплой не викидав з CRM.
+- Ролі: admin / manager / installer. Монтажнику гроші не вантажаться з БД взагалі (`OrderService.GetAsync`), перевірки прав — у сервісах, не лише в UI.
+- Гроші — `Crm/OrderFinance.cs` (чисті функції, тести), дашборд — `Crm/Dashboard.cs` (`DashboardCalc.Build`, тести). Правила обліку місяця (погоджено власником): виручка — за датою оплати; прибуток і заробіток — за завершеними в місяці; прибуток = отримано − витрати − частки; прибуток не ділиться (спільні гроші). Частки — з шаблону (`share_templates`), у замовленні редагуються; «виплачено» фіксує суму.
+- Заявка з сайту → клієнт (пошук за телефоном) + замовлення «Нова заявка» (`OrderService.CreateFromLeadAsync`); при старті `BackfillLeadsAsync` добирає заявки без замовлень.
+- Файли — Render Disk `/var/data` (`Files__Root=/var/data/files`), у БД лише опис (`order_files`). Тому в Dockerfile немає `USER $APP_UID` (диск монтується з правами root). Видача: `GET /crm/fajly/{id}` з перевіркою доступу.
+- Telegram: `ITelegramSender` (один клієнт Bot API), `TelegramNotifier` — заявки, `CrmNotifier` — нове замовлення, «Монтаж» монтажнику, нагадування (`ReminderService`, щодня з 18:00 Києва, раз на день — ключ `reminders_last_run` у `settings`). Збій Telegram ніколи не ламає дію.
+- Тестова інфраструктура — `tests/.../TestInfra.cs` (`SiteFactory`, `CrmTestContext`, фейки Telegram і часу).
 
 ## Цей проєкт
 
-- ASP.NET Core **net10.0** (LTS), Blazor Web App. Лендінг — статичний серверний рендер (без SignalR); Interactive Server — для CRM на етапі 2.
+- ASP.NET Core **net10.0** (LTS), Blazor Web App. Лендінг — статичний серверний рендер (без SignalR); Interactive Server — для CRM.
 - PostgreSQL, EF Core 10 + Npgsql, **нормальні EF-міграції** (`Data/Migrations`), застосовуються при старті (`MigrateAsync`). Snake_case-мапінг у `AppDbContext`.
 - Нова міграція: `dotnet ef migrations add <Назва> --project src/KastomniMebli.Web --output-dir Data/Migrations` (інструмент у `dotnet-tools.json`, `dotnet tool restore`).
 - Тести: xUnit + WebApplicationFactory + EF InMemory (`dotnet test`). Telegram у тестах підміняється `FakeNotifier`.
@@ -35,7 +48,7 @@
 - Секрети: `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` (кілька id через кому). Локально — `.env` (читає `DotEnv.cs`).
 - Заявка: `POST /zayavka` (`Leads/LeadEndpoints.cs`) — JSON для JS-форми, редирект `/?zayavka=...` без JS. Спам: honeypot `website`, мітка часу `t` (DataProtection, м'яка — невалідна мітка не блокує), rate limit 5/год з IP.
 - IP клієнта за проксі Render: `CF-Connecting-IP` → перший у `X-Forwarded-For` (лише коли `Proxy__TrustForwardedHeaders=true`). Перевірити після деплою, що `ip_hash` різний з різних мереж.
-- Таблиця `leads`: source=`site`, status=`new` — на етапі 2 з неї створюється замовлення.
+- Таблиця `leads`: source=`site`, status=`new` — з кожної заявки створюється замовлення в CRM.
 - Локально немає Docker і Postgres; для перевірки використовувався портативний Postgres у тимчасовій папці.
 - Кольори дизайну в `wwwroot/app.css` (`:root`). «Дуб» для темної теми (`#8A6A48`) у ТЗ не було — підібрано.
 

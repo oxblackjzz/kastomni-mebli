@@ -13,7 +13,8 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8
 COPY --from=build /app .
-USER $APP_UID
+# Без USER $APP_UID: постійний диск Render монтується з правами root,
+# і непривілейований користувач не зміг би писати туди файли CRM.
 # Render передає PORT; без нього — стандартний 8080.
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "KastomniMebli.Web.dll"]

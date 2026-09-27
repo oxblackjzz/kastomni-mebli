@@ -485,3 +485,6 @@ $RECYCLE.BIN/
 .env
 .env.local
 
+
+# Локальні файли CRM
+src/KastomniMebli.Web/App_Data/
