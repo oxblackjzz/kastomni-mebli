@@ -1,13 +1,20 @@
+using KastomniMebli.Web.Crm;
 using KastomniMebli.Web.Data;
 using KastomniMebli.Web.Notifications;
 
 namespace KastomniMebli.Web.Leads;
 
-public sealed class LeadService(AppDbContext db, ILeadNotifier notifier, TimeProvider time, ILogger<LeadService> log)
+public sealed class LeadService(
+    AppDbContext db,
+    OrderService orders,
+    ILeadNotifier notifier,
+    TimeProvider time,
+    ILogger<LeadService> log)
 {
     /// <summary>
-    /// Спершу зберігаємо заявку, потім сповіщаємо. Падіння Telegram не губить заявку —
-    /// помилка лягає в лог і в поле telegram_error.
+    /// Спершу зберігаємо заявку, потім створюємо замовлення в CRM і сповіщаємо.
+    /// Ні збій CRM, ні збій Telegram не губить заявку: помилки — в лог (і в telegram_error),
+    /// а замовлення для «загублених» заявок створиться при наступному старті (BackfillLeadsAsync).
     /// </summary>
     public async Task<Lead> SubmitAsync(ValidLead input, string? ip, string? userAgent)
     {
@@ -32,9 +39,19 @@ public sealed class LeadService(AppDbContext db, ILeadNotifier notifier, TimePro
         await db.SaveChangesAsync(CancellationToken.None);
         log.LogInformation("Нова заявка #{LeadId}", lead.Id);
 
+        int? orderId = null;
         try
         {
-            await notifier.NotifyAsync(lead, CancellationToken.None);
+            orderId = await orders.CreateFromLeadAsync(lead);
+        }
+        catch (Exception ex)
+        {
+            log.LogError(ex, "Заявку #{LeadId} збережено, але замовлення в CRM не створено", lead.Id);
+        }
+
+        try
+        {
+            await notifier.NotifyAsync(lead, orderId, CancellationToken.None);
             lead.TelegramSentAt = time.GetUtcNow().UtcDateTime;
         }
         catch (Exception ex)

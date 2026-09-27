@@ -2,44 +2,44 @@ using System.Text;
 using System.Text.Json;
 using KastomniMebli.Web.Data;
 using KastomniMebli.Web.Leads;
+using KastomniMebli.Web.Settings;
+using Microsoft.Extensions.Options;
 
 namespace KastomniMebli.Web.Notifications;
 
-/// <summary>
-/// Надсилає заявку через Telegram Bot API (sendMessage).
-/// TELEGRAM_BOT_TOKEN — токен від @BotFather.
-/// TELEGRAM_CHAT_ID — id групи або кілька id через кому (наприклад, твій і брата).
-/// </summary>
-public sealed class TelegramNotifier(HttpClient http, IConfiguration config) : ILeadNotifier
+public interface ITelegramSender
 {
-    public async Task NotifyAsync(Lead lead, CancellationToken ct)
+    /// <summary>Загальний чат команди — TELEGRAM_CHAT_ID (кілька id через кому).</summary>
+    IReadOnlyList<string> TeamChatIds { get; }
+
+    /// <summary>Кидає виняток, якщо Telegram не налаштовано або повідомлення не дійшло.</summary>
+    Task SendAsync(string chatId, string html, CancellationToken ct);
+}
+
+/// <summary>
+/// Telegram Bot API (sendMessage). TELEGRAM_BOT_TOKEN — токен від @BotFather.
+/// </summary>
+public sealed class TelegramSender(HttpClient http, IConfiguration config) : ITelegramSender
+{
+    public IReadOnlyList<string> TeamChatIds =>
+        (config["TELEGRAM_CHAT_ID"] ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    public async Task SendAsync(string chatId, string html, CancellationToken ct)
     {
         var token = config["TELEGRAM_BOT_TOKEN"];
-        var chatIds = (config["TELEGRAM_CHAT_ID"] ?? "")
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (string.IsNullOrWhiteSpace(token))
+            throw new InvalidOperationException("Telegram не налаштовано: немає TELEGRAM_BOT_TOKEN");
 
-        if (string.IsNullOrWhiteSpace(token) || chatIds.Length == 0)
-            throw new InvalidOperationException("Telegram не налаштовано: немає TELEGRAM_BOT_TOKEN або TELEGRAM_CHAT_ID");
-
-        var text = TelegramMessage.ForLead(lead, TelegramMessage.KyivTime);
-        var failures = new List<string>();
-
-        foreach (var chatId in chatIds)
+        using var response = await http.PostAsJsonAsync($"bot{token}/sendMessage", new
         {
-            using var response = await http.PostAsJsonAsync($"bot{token}/sendMessage", new
-            {
-                chat_id = chatId,
-                text,
-                parse_mode = "HTML",
-                link_preview_options = new { is_disabled = true },
-            }, ct);
+            chat_id = chatId,
+            text = html,
+            parse_mode = "HTML",
+            link_preview_options = new { is_disabled = true },
+        }, ct);
 
-            if (!response.IsSuccessStatusCode)
-                failures.Add($"чат {chatId}: {(int)response.StatusCode} {await ReadDescription(response, ct)}");
-        }
-
-        if (failures.Count > 0)
-            throw new HttpRequestException("Telegram: " + string.Join("; ", failures));
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException($"Telegram, чат {chatId}: {(int)response.StatusCode} {await ReadDescription(response, ct)}");
     }
 
     private static async Task<string> ReadDescription(HttpResponseMessage response, CancellationToken ct)
@@ -56,9 +56,39 @@ public sealed class TelegramNotifier(HttpClient http, IConfiguration config) : I
     }
 }
 
+/// <summary>Заявка з сайту → загальний чат команди.</summary>
+public sealed class TelegramNotifier(ITelegramSender telegram, IOptions<SiteSettings> site) : ILeadNotifier
+{
+    public async Task NotifyAsync(Lead lead, int? orderId, CancellationToken ct)
+    {
+        var chatIds = telegram.TeamChatIds;
+        if (chatIds.Count == 0)
+            throw new InvalidOperationException("Telegram не налаштовано: немає TELEGRAM_CHAT_ID");
+
+        var text = TelegramMessage.ForLead(lead, TelegramMessage.KyivTime);
+        if (orderId is not null && TelegramMessage.OrderLink(site.Value, orderId.Value) is { } link)
+            text += "\n\n" + link;
+
+        var failures = new List<string>();
+        foreach (var chatId in chatIds)
+        {
+            try
+            {
+                await telegram.SendAsync(chatId, text, ct);
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                failures.Add(ex.Message);
+            }
+        }
+        if (failures.Count > 0)
+            throw new HttpRequestException(string.Join("; ", failures));
+    }
+}
+
 public static class TelegramMessage
 {
-    public static TimeZoneInfo KyivTime { get; } = FindKyiv();
+    public static TimeZoneInfo KyivTime => Crm.Kyiv.Zone;
 
     public static string ForLead(Lead lead, TimeZoneInfo tz)
     {
@@ -79,22 +109,18 @@ public static class TelegramMessage
         return sb.ToString().TrimEnd();
     }
 
-    private static void Line(StringBuilder sb, string label, string? value) =>
+    /// <summary>Посилання на замовлення в CRM, якщо задано Site:BaseUrl.</summary>
+    public static string? OrderLink(SiteSettings site, int orderId) =>
+        string.IsNullOrWhiteSpace(site.BaseUrl)
+            ? null
+            : $"<a href=\"{Escape(site.BaseUrl.TrimEnd('/'))}/crm/zamovlennia/{orderId}\">Відкрити в CRM</a>";
+
+    public static void Line(StringBuilder sb, string label, string? value) =>
         sb.Append("<b>").Append(label).Append(":</b> ")
           .Append(string.IsNullOrWhiteSpace(value) ? "—" : Escape(value))
           .Append('\n');
 
     // Bot API у режимі HTML вимагає екранувати лише ці символи.
-    private static string Escape(string value) =>
+    public static string Escape(string value) =>
         value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
-
-    private static TimeZoneInfo FindKyiv()
-    {
-        foreach (var id in new[] { "Europe/Kyiv", "Europe/Kiev", "FLE Standard Time" })
-        {
-            if (TimeZoneInfo.TryFindSystemTimeZoneById(id, out var tz))
-                return tz;
-        }
-        return TimeZoneInfo.Utc;
-    }
 }

@@ -13,6 +13,9 @@ public sealed class SiteSettings
 
     public string Brand { get; set; } = "Кастомні Меблі";
 
+    /// <summary>Публічна адреса сайту, напр. https://kastomni-mebli.onrender.com — для посилань у Telegram.</summary>
+    public string BaseUrl { get; set; } = "";
+
     /// <summary>Де працюємо, напр. ["Звягель та район", "Житомир", "Рівне"].</summary>
     public List<string> Areas { get; set; } = [];
 

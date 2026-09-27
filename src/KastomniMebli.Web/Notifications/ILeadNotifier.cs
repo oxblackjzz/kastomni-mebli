@@ -4,6 +4,6 @@ namespace KastomniMebli.Web.Notifications;
 
 public interface ILeadNotifier
 {
-    /// <summary>Кидає виняток, якщо сповіщення не дійшло.</summary>
-    Task NotifyAsync(Lead lead, CancellationToken ct);
+    /// <summary>Кидає виняток, якщо сповіщення не дійшло. orderId — для посилання на CRM.</summary>
+    Task NotifyAsync(Lead lead, int? orderId, CancellationToken ct);
 }
