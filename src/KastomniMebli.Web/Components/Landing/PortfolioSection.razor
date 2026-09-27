@@ -1,0 +1,38 @@
+@using KastomniMebli.Web.Crm
+@inject PortfolioService Portfolio
+
+<section class="section section-alt" id="roboty">
+    <div class="container">
+        <div class="section-head-row">
+            <div>
+                <p class="sheet-label"><span class="mono">05</span> Наші роботи</p>
+                <h2>Зроблено під конкретні ніші</h2>
+            </div>
+            <a class="btn btn-ghost btn-sm" href="/roboty">Усі роботи →</a>
+        </div>
+        <ul class="works-grid">
+            @foreach (var card in Cards)
+            {
+                <li><WorkCardView Card="card" /></li>
+            }
+            @for (var i = Cards.Count; i < PortfolioService.HomeSlots; i++)
+            {
+                @* Порожнє місце під майбутню роботу — у стилі креслення *@
+                <li class="work-slot" aria-hidden="true">
+                    <svg viewBox="0 0 120 90" preserveAspectRatio="none">
+                        <rect x="8" y="8" width="104" height="74" />
+                        <line x1="60" y1="8" x2="60" y2="82" />
+                        <line x1="8" y1="24" x2="112" y2="24" />
+                    </svg>
+                    <span class="mono">фото незабаром</span>
+                </li>
+            }
+        </ul>
+    </div>
+</section>
+
+@code {
+    private List<WorkCard> Cards { get; set; } = [];
+
+    protected override async Task OnInitializedAsync() => Cards = await Portfolio.HomeCardsAsync();
+}

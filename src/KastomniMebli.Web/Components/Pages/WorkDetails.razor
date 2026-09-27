@@ -1,0 +1,64 @@
+@page "/roboty/{Id:int}"
+@using KastomniMebli.Web.Crm
+@using KastomniMebli.Web.Data
+@inject PortfolioService Portfolio
+@inject IOptions<SiteSettings> SiteOptions
+@inject NavigationManager Nav
+
+@if (Work is not null)
+{
+    <PageTitle>@Work.Title — @SiteOptions.Value.Brand</PageTitle>
+    <HeadContent>
+        <meta name="description" content="@(Work.Description ?? $"{FurnitureTypes.Label(Work.Category)}: {Work.Title}")" />
+        @if (Work.Photos.FirstOrDefault() is { } cover && !string.IsNullOrEmpty(SiteOptions.Value.BaseUrl))
+        {
+            <meta property="og:image" content="@(SiteOptions.Value.BaseUrl.TrimEnd('/'))/roboty/foto/@cover.Id/l" />
+        }
+        <meta property="og:title" content="@Work.Title" />
+    </HeadContent>
+
+    <section class="section section-first">
+        <div class="container narrow">
+            <a class="crumb" href="/roboty">← Усі роботи</a>
+            <p class="sheet-label"><span class="mono">@FurnitureTypes.Label(Work.Category)</span> @Work.Location</p>
+            <h1>@Work.Title</h1>
+            @if (Work.Description is { } description)
+            {
+                <p class="lead work-description">@description</p>
+            }
+
+            <div class="work-photos">
+                @foreach (var photo in Work.Photos)
+                {
+                    <figure class="work-photo">
+                        <a href="/roboty/foto/@photo.Id/l" target="_blank" rel="noopener">
+                            <img src="/roboty/foto/@photo.Id/l" alt="@(photo.Caption ?? Work.Title)" loading="lazy" decoding="async" />
+                        </a>
+                        @if (photo.Caption is { } caption)
+                        {
+                            <figcaption class="mono">@caption</figcaption>
+                        }
+                    </figure>
+                }
+            </div>
+
+            <div class="works-cta">
+                <p>Потрібно щось подібне?</p>
+                <a class="btn btn-primary" href="/#zayavka">Замовити замір</a>
+            </div>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private PortfolioWork? Work { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Work = await Portfolio.PublishedWorkAsync(Id);
+        if (Work is null)
+            Nav.NotFound();
+    }
+}

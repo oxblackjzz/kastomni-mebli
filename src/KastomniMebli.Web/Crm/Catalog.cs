@@ -58,6 +58,7 @@ public static class Catalog
     [
         ("drawing", "Креслення"),
         ("measure_photo", "Фото заміру"),
+        ("brief", "Від замовника"),
         ("other", "Інше"),
     ];
 

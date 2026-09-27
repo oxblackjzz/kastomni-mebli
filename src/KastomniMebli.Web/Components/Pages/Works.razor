@@ -1,0 +1,61 @@
+@page "/roboty"
+@using KastomniMebli.Web.Crm
+@inject PortfolioService Portfolio
+@inject IOptions<SiteSettings> SiteOptions
+
+<PageTitle>Наші роботи — @SiteOptions.Value.Brand</PageTitle>
+<HeadContent>
+    <meta name="description" content="Шафи-купе, кухні, гардеробні, передпокої, які ми зробили під розмір замовників. @SiteOptions.Value.AreasText." />
+</HeadContent>
+
+<section class="section section-first">
+    <div class="container">
+        <p class="sheet-label"><span class="mono">01</span> Портфоліо</p>
+        <h1>Наші роботи</h1>
+        <p class="lead">Кожна з цих меблів спершу була кресленням під конкретну нішу.</p>
+
+        <nav class="filter-row" aria-label="Тип меблів">
+            <a class="fchip @(Category is null ? "on" : null)" href="/roboty">Усі</a>
+            @foreach (var (key, label) in FurnitureTypes.All)
+            {
+                <a class="fchip @(Category == key ? "on" : null)" href="/roboty?typ=@key">@label</a>
+            }
+        </nav>
+
+        @if (Cards.Count == 0)
+        {
+            <div class="works-empty">
+                <p>Тут скоро з'являться фото наших робіт.</p>
+                <a class="btn btn-primary" href="/#zayavka">Замовити замір</a>
+            </div>
+        }
+        else
+        {
+            <ul class="works-grid">
+                @foreach (var card in Cards)
+                {
+                    <li><WorkCardView Card="card" /></li>
+                }
+            </ul>
+        }
+
+        <div class="works-cta">
+            <p>Хочете так само — під свою нішу?</p>
+            <a class="btn btn-primary" href="/#zayavka">Замовити замір</a>
+        </div>
+    </div>
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "typ")]
+    private string? Category { get; set; }
+
+    private List<WorkCard> Cards { get; set; } = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Category is not null && !FurnitureTypes.IsKnown(Category))
+            Category = null;
+        Cards = await Portfolio.PublishedCardsAsync(Category);
+    }
+}

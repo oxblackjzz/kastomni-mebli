@@ -1,7 +1,6 @@
 using KastomniMebli.Web.Crm.Auth;
 using KastomniMebli.Web.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 namespace KastomniMebli.Web.Crm;
 
@@ -20,12 +19,7 @@ public sealed class FileStorageOptions
 }
 
 /// <summary>Креслення й фото до замовлень: вміст на диску, опис — у таблиці order_files.</summary>
-public sealed class FileService(
-    IDbContextFactory<AppDbContext> dbs,
-    IOptions<FileStorageOptions> options,
-    IWebHostEnvironment env,
-    TimeProvider time,
-    ILogger<FileService> log)
+public sealed class FileService(IDbContextFactory<AppDbContext> dbs, FileStore store, TimeProvider time, ILogger<FileService> log)
 {
     private static readonly Dictionary<string, string> Allowed = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -38,43 +32,49 @@ public sealed class FileService(
         [".webp"] = "image/webp",
         [".heic"] = "image/heic",
         [".heif"] = "image/heif",
+        [".zip"] = "application/zip",
     };
 
     public static string AllowedExtensions => string.Join(",", Allowed.Keys);
 
-    public long MaxBytes => options.Value.MaxSizeMb * 1024L * 1024L;
+    public static bool IsAllowed(string fileName) => Allowed.ContainsKey(Path.GetExtension(fileName));
 
-    public string RootPath =>
-        Path.IsPathRooted(options.Value.Root) ? options.Value.Root : Path.Combine(env.ContentRootPath, options.Value.Root);
+    public long MaxBytes => store.MaxBytes;
 
     public async Task<OrderFile> UploadAsync(CurrentUser actor, int orderId, string kind, string fileName, Stream content, long size)
+    {
+        await using var db = await dbs.CreateDbContextAsync();
+        await RequireAccessAsync(db, actor, orderId);
+        return await SaveAsync(db, orderId, kind, fileName, content, size, actor.Id);
+    }
+
+    /// <summary>Без перевірки прав — для файлів із публічної форми (B2B-заявка).</summary>
+    public async Task<OrderFile> SaveFromPublicFormAsync(int orderId, string fileName, Stream content, long size)
+    {
+        await using var db = await dbs.CreateDbContextAsync();
+        return await SaveAsync(db, orderId, "brief", fileName, content, size, uploadedBy: null);
+    }
+
+    private async Task<OrderFile> SaveAsync(AppDbContext db, int orderId, string kind, string fileName, Stream content, long size, int? uploadedBy)
     {
         if (!Catalog.Has(Catalog.FileKinds, kind))
             throw new CrmException("Невідомий вид файлу.");
         var ext = Path.GetExtension(fileName);
         if (!Allowed.TryGetValue(ext, out var contentType))
             throw new CrmException($"Такий тип файлу не приймаємо. Можна: {AllowedExtensions}.");
-        if (size > MaxBytes)
-            throw new CrmException($"Файл завеликий — до {options.Value.MaxSizeMb} МБ.");
+        if (size > store.MaxBytes)
+            throw new CrmException($"Файл завеликий — до {store.MaxSizeMb} МБ.");
 
-        await using var db = await dbs.CreateDbContextAsync();
-        await RequireAccessAsync(db, actor, orderId);
-
-        var relative = $"orders/{orderId}/{Guid.NewGuid():N}{ext.ToLowerInvariant()}";
-        var fullPath = Path.Combine(RootPath, relative);
-        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-        await using (var target = File.Create(fullPath))
-            await content.CopyToAsync(target);
-
+        var relative = await store.SaveAsync($"orders/{orderId}", ext, content, store.MaxBytes);
         var file = new OrderFile
         {
             OrderId = orderId,
             Kind = kind,
             FileName = SafeName(fileName),
             ContentType = contentType,
-            Size = new FileInfo(fullPath).Length,
+            Size = store.Size(relative),
             StoragePath = relative,
-            UploadedByUserId = actor.Id,
+            UploadedByUserId = uploadedBy,
             UploadedAt = time.GetUtcNow().UtcDateTime,
         };
         db.OrderFiles.Add(file);
@@ -89,13 +89,12 @@ public sealed class FileService(
         var file = await db.OrderFiles.AsNoTracking().FirstOrDefaultAsync(f => f.Id == fileId);
         if (file is null || !await HasAccessAsync(db, actor, file.OrderId))
             return null;
-        var path = Path.Combine(RootPath, file.StoragePath);
-        if (!File.Exists(path))
+        if (!store.Exists(file.StoragePath))
         {
             log.LogError("Файл {FileId} є в базі, але відсутній на диску: {Path}", file.Id, file.StoragePath);
             return null;
         }
-        return (file, path);
+        return (file, store.FullPath(file.StoragePath));
     }
 
     public async Task DeleteAsync(CurrentUser actor, int fileId)
@@ -106,14 +105,7 @@ public sealed class FileService(
             throw new CrmForbiddenException();
         db.OrderFiles.Remove(file);
         await db.SaveChangesAsync();
-        try
-        {
-            File.Delete(Path.Combine(RootPath, file.StoragePath));
-        }
-        catch (IOException ex)
-        {
-            log.LogWarning(ex, "Не вдалося видалити файл {Path} з диска", file.StoragePath);
-        }
+        store.TryDelete(file.StoragePath);
     }
 
     private static async Task<bool> HasAccessAsync(AppDbContext db, CurrentUser actor, int orderId) =>
@@ -127,7 +119,7 @@ public sealed class FileService(
             throw new CrmForbiddenException();
     }
 
-    private static string SafeName(string name)
+    public static string SafeName(string name)
     {
         var clean = Path.GetFileName(name);
         foreach (var c in Path.GetInvalidFileNameChars())

@@ -1,0 +1,94 @@
+@page "/crm/portfolio"
+@rendermode CrmRender.Mode
+@attribute [Authorize(Roles = Roles.MoneyViewers)]
+@inherits CrmPageBase
+@inject PortfolioService Portfolio
+@inject NavigationManager Nav
+
+<PageTitle>Портфоліо — CRM</PageTitle>
+
+<div class="crm-head">
+    <h1>Портфоліо</h1>
+    <a class="btn btn-ghost btn-sm" href="/roboty" target="_blank" rel="noopener">Сторінка на сайті ↗</a>
+</div>
+<Alerts Error="@Error" Notice="@Notice" />
+
+<section class="panel">
+    <h2>Нова робота</h2>
+    <div class="inline-form">
+        <input type="text" placeholder="Назва, напр. «Шафа-купе в нішу 2,4 м»" @bind="NewTitle" maxlength="120" aria-label="Назва" />
+        <select @bind="NewCategory" aria-label="Тип">
+            @foreach (var (key, label) in FurnitureTypes.All)
+            {
+                <option value="@key">@label</option>
+            }
+        </select>
+        <button type="button" class="btn btn-primary btn-sm" @onclick="Create">Створити й додати фото</button>
+    </div>
+</section>
+
+@if (Loading)
+{
+    <p class="muted">Завантаження…</p>
+}
+else if (Works.Count == 0)
+{
+    <div class="crm-empty"><p>Робіт ще немає. Створіть першу — на сайті зараз 6 порожніх місць.</p></div>
+}
+else
+{
+    <p class="muted small">На головній — 6 місць: спершу роботи з позначкою «на головній», далі найновіші опубліковані.</p>
+    <ul class="pf-list">
+        @foreach (var w in Works)
+        {
+            var cover = w.Photos.FirstOrDefault();
+            <li>
+                <a class="pf-row" href="/crm/portfolio/@w.Id">
+                    <span class="pf-thumb">
+                        @if (cover is not null)
+                        {
+                            <img src="/roboty/foto/@cover.Id/t" alt="" loading="lazy" />
+                        }
+                    </span>
+                    <span class="pf-info">
+                        <strong>@w.Title</strong>
+                        <span class="muted small">@FurnitureTypes.Label(w.Category) · фото: @w.Photos.Count</span>
+                        <span class="pf-flags small">
+                            @if (w.IsPublished)
+                            {
+                                <span class="status status-done">на сайті</span>
+                            }
+                            else
+                            {
+                                <span class="status">чернетка</span>
+                            }
+                            @if (w.OnHome)
+                            {
+                                <span class="status status-approved">на головній</span>
+                            }
+                            @if (w.ForMakers)
+                            {
+                                <span class="status">для меблярів</span>
+                            }
+                        </span>
+                    </span>
+                </a>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<PortfolioWork> Works { get; set; } = [];
+    private string NewTitle { get; set; } = "";
+    private string NewCategory { get; set; } = "wardrobe";
+
+    protected override async Task LoadAsync() => Works = await Portfolio.ListAsync(Me);
+
+    private async Task Create()
+    {
+        var id = 0;
+        if (await Run(async () => id = await Portfolio.CreateAsync(Me, new PortfolioInput { Title = NewTitle, Category = NewCategory })))
+            Nav.NavigateTo($"/crm/portfolio/{id}");
+    }
+}

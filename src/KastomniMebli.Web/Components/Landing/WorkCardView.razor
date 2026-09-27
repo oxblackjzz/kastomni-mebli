@@ -1,0 +1,22 @@
+@using KastomniMebli.Web.Crm
+
+<a class="work-card" href="/roboty/@Card.Id">
+    <span class="work-img">
+        @if (Card.CoverPhotoId is { } photo)
+        {
+            <img src="/roboty/foto/@photo/t" alt="@Card.Title" loading="lazy" decoding="async" />
+        }
+    </span>
+    <span class="work-meta">
+        <span class="mono work-type">@FurnitureTypes.Label(Card.Category)@(Card.Location is null ? "" : " · " + Card.Location)</span>
+        <strong>@Card.Title</strong>
+        @if (Card.PhotoCount > 1)
+        {
+            <span class="mono small muted">@Card.PhotoCount фото</span>
+        }
+    </span>
+</a>
+
+@code {
+    [Parameter, EditorRequired] public WorkCard Card { get; set; } = null!;
+}

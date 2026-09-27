@@ -2,9 +2,9 @@
 
 @if (SiteOptions.Value.Team.Count > 0)
 {
-    <section class="section section-alt" id="komanda">
+    <section class="section" id="komanda">
         <div class="container">
-            <p class="sheet-label"><span class="mono">05</span> Команда</p>
+            <p class="sheet-label"><span class="mono">06</span> Команда</p>
             <h2>Хто працює над вашим замовленням</h2>
             <ul class="card-grid card-grid-3">
                 @foreach (var (member, i) in SiteOptions.Value.Team.Select((m, i) => (m, i)))

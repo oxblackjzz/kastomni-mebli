@@ -590,3 +590,49 @@ body.crm {
 .login-card { width: 100%; max-width: 380px; padding: 28px 24px; }
 .login-card h1 { font-size: 1.5rem; margin-bottom: 18px; }
 .login-card .btn { width: 100%; margin-top: 6px; }
+
+/* ---------- Портфоліо ---------- */
+
+.pf-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.pf-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    text-decoration: none;
+}
+.pf-row:hover { border-color: var(--accent); }
+.pf-thumb { flex: none; width: 84px; aspect-ratio: 4 / 3; background: var(--oak-light); overflow: hidden; }
+.pf-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pf-info { display: grid; gap: 3px; min-width: 0; }
+.pf-flags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.pf-photos {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+}
+.pf-photos li { display: grid; gap: 6px; background: var(--bg); border: 1px solid var(--line); padding: 6px; }
+.pf-photos img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+.pf-photos input { min-height: 36px !important; font-size: 0.85rem !important; }
+.pf-photo-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.pf-photo-actions .mono { margin-right: auto; color: var(--accent); }
+.icon-btn:disabled { opacity: .35; cursor: default; }
+
+.crm-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.crm-links a {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--surface);
+    color: var(--ink);
+    text-decoration: none;
+}
+.crm-links a:hover { color: var(--accent); }

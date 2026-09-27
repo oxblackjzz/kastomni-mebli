@@ -11,6 +11,19 @@
 
 @if (!Loading)
 {
+    @if (Me.CanSeeMoney)
+    {
+        @* На телефоні нижня панель вміщує не все — решта розділів тут. *@
+        <section class="panel">
+            <h2>Розділи</h2>
+            <ul class="crm-links">
+                <li><a href="/crm/portfolio">Портфоліо — фото робіт для сайту <span>→</span></a></li>
+                <li><a href="/crm/klienty">Клієнти <span>→</span></a></li>
+                <li><a href="/" target="_blank" rel="noopener">Відкрити сайт <span>↗</span></a></li>
+            </ul>
+        </section>
+    }
+
     @* ---------- Мій пароль ---------- *@
     <section class="panel">
         <h2>Мій пароль</h2>

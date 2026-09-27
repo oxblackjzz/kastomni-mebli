@@ -1,0 +1,172 @@
+@page "/crm/portfolio/{Id:int}"
+@rendermode CrmRender.Mode
+@attribute [Authorize(Roles = Roles.MoneyViewers)]
+@inherits CrmPageBase
+@inject PortfolioService Portfolio
+@inject NavigationManager Nav
+
+<PageTitle>@(Work?.Title ?? "Робота") — Портфоліо</PageTitle>
+
+<a class="crm-back" href="/crm/portfolio">← Портфоліо</a>
+<Alerts Error="@Error" Notice="@Notice" />
+
+@if (Work is not null)
+{
+    <div class="crm-head">
+        <h1>@Work.Title</h1>
+        @if (Work.IsPublished)
+        {
+            <a class="btn btn-ghost btn-sm" href="/roboty/@Work.Id" target="_blank" rel="noopener">Відкрити на сайті ↗</a>
+        }
+    </div>
+
+    <section class="panel">
+        <h2>Опис</h2>
+        <div class="crm-form">
+            <div class="grid2">
+                <label class="crm-field"><span>Назва</span><input type="text" @bind="Input.Title" maxlength="120" /></label>
+                <label class="crm-field">
+                    <span>Тип</span>
+                    <select @bind="Input.Category">
+                        @foreach (var (key, label) in FurnitureTypes.All)
+                        {
+                            <option value="@key">@label</option>
+                        }
+                    </select>
+                </label>
+                <label class="crm-field"><span>Місто / район</span><input type="text" @bind="Input.Location" maxlength="120" placeholder="напр. Звягель" /></label>
+                <label class="crm-field"><span>Порядок (менше — вище)</span><input type="number" @bind="Input.SortOrder" /></label>
+            </div>
+            <label class="crm-field">
+                <span>Опис — що було складного, які матеріали</span>
+                <textarea rows="4" @bind="Input.Description" maxlength="2000"></textarea>
+            </label>
+            <div class="chips">
+                <label class="chip"><input type="checkbox" @bind="Input.IsPublished" /><span>Показувати на сайті</span></label>
+                <label class="chip"><input type="checkbox" @bind="Input.OnHome" /><span>На головній</span></label>
+                <label class="chip"><input type="checkbox" @bind="Input.ForMakers" /><span>Приклад для меблярів</span></label>
+            </div>
+            @if (Input.IsPublished && Work.Photos.Count == 0)
+            {
+                <p class="muted small">Без жодного фото робота на сайті не з'явиться.</p>
+            }
+            <div class="form-row">
+                <button type="button" class="btn btn-primary" @onclick="Save">Зберегти</button>
+                <button type="button" class="btn btn-ghost" @onclick="Delete">Видалити роботу</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Фото</h2>
+        <p class="muted small">Перше фото — обкладинка. Фото зменшуються ще на телефоні (до 1920 px), геодані з них прибираються.</p>
+        <label class="btn btn-primary btn-sm file-btn">
+            @(Uploading is null ? "Додати фото" : $"Завантаження {Uploading}…")
+            <InputFile OnChange="Upload" multiple accept="image/jpeg,image/png,image/webp,image/heic" disabled="@(Uploading is not null)" />
+        </label>
+
+        @if (Work.Photos.Count > 0)
+        {
+            <ul class="pf-photos">
+                @foreach (var (photo, i) in Work.Photos.Select((p, i) => (p, i)))
+                {
+                    <li>
+                        <img src="/roboty/foto/@photo.Id/t" alt="" loading="lazy" />
+                        <input type="text" placeholder="Підпис (необов'язково)" value="@photo.Caption" maxlength="300"
+                               @onchange="e => SetCaption(photo, e.Value?.ToString())" aria-label="Підпис" />
+                        <div class="pf-photo-actions">
+                            @if (i == 0)
+                            {
+                                <span class="mono small">обкладинка</span>
+                            }
+                            <button type="button" class="icon-btn" title="Раніше" disabled="@(i == 0)" @onclick="() => Move(photo, -1)">↑</button>
+                            <button type="button" class="icon-btn" title="Пізніше" disabled="@(i == Work.Photos.Count - 1)" @onclick="() => Move(photo, 1)">↓</button>
+                            <button type="button" class="icon-btn" title="Видалити фото" @onclick="() => DeletePhoto(photo)">×</button>
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private PortfolioWork? Work { get; set; }
+    private PortfolioInput Input { get; set; } = new();
+    private string? Uploading { get; set; }
+
+    protected override async Task LoadAsync()
+    {
+        Work = await Portfolio.GetAsync(Me, Id);
+        Input = new PortfolioInput
+        {
+            Title = Work.Title,
+            Category = Work.Category,
+            Location = Work.Location,
+            Description = Work.Description,
+            IsPublished = Work.IsPublished,
+            OnHome = Work.OnHome,
+            ForMakers = Work.ForMakers,
+            SortOrder = Work.SortOrder,
+        };
+    }
+
+    private Task Save() => Run(async () =>
+    {
+        await Portfolio.UpdateAsync(Me, Id, Input);
+        await LoadAsync();
+    }, "Збережено.");
+
+    private async Task Delete()
+    {
+        if (await Run(() => Portfolio.DeleteAsync(Me, Id)))
+            Nav.NavigateTo("/crm/portfolio");
+    }
+
+    private async Task Upload(InputFileChangeEventArgs e)
+    {
+        var files = e.GetMultipleFiles(30);
+        var done = 0;
+        await Run(async () =>
+        {
+            foreach (var file in files)
+            {
+                Uploading = $"{done + 1} з {files.Count}";
+                StateHasChanged();
+                IBrowserFile large, thumb;
+                try
+                {
+                    large = await file.RequestImageFileAsync("image/jpeg", 1920, 1920);
+                    thumb = await file.RequestImageFileAsync("image/jpeg", 720, 720);
+                }
+                catch (Exception)
+                {
+                    throw new CrmException($"{file.Name}: браузер не зміг відкрити фото. Збережіть його як JPEG і спробуйте ще раз.");
+                }
+                await using var ls = large.OpenReadStream(PortfolioService.MaxPhotoBytes);
+                await using var ts = thumb.OpenReadStream(PortfolioService.MaxPhotoBytes);
+                await Portfolio.AddPhotoAsync(Me, Id, ls, ts);
+                done++;
+            }
+        }, $"Додано фото: {files.Count}.");
+        Uploading = null;
+        await Run(LoadAsync);
+    }
+
+    private Task Move(PortfolioPhoto photo, int direction) => Run(async () =>
+    {
+        await Portfolio.MovePhotoAsync(Me, photo.Id, direction);
+        await LoadAsync();
+    });
+
+    private Task DeletePhoto(PortfolioPhoto photo) => Run(async () =>
+    {
+        await Portfolio.DeletePhotoAsync(Me, photo.Id);
+        await LoadAsync();
+    });
+
+    private Task SetCaption(PortfolioPhoto photo, string? caption) =>
+        Run(() => Portfolio.SetCaptionAsync(Me, photo.Id, caption), "Підпис збережено.");
+}

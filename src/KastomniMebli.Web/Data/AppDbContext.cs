@@ -19,6 +19,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<OrderFile> OrderFiles => Set<OrderFile>();
     public DbSet<AppSetting> Settings => Set<AppSetting>();
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+    public DbSet<PortfolioWork> PortfolioWorks => Set<PortfolioWork>();
+    public DbSet<PortfolioPhoto> PortfolioPhotos => Set<PortfolioPhoto>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -149,6 +151,23 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.Property(x => x.FriendlyName).HasMaxLength(100).IsRequired();
             e.Property(x => x.Xml).IsRequired();
+        });
+
+        b.Entity<PortfolioWork>(e =>
+        {
+            e.Property(x => x.Title).HasMaxLength(120).IsRequired();
+            e.Property(x => x.Category).HasMaxLength(32).IsRequired();
+            e.Property(x => x.Location).HasMaxLength(120);
+            e.Property(x => x.Description).HasMaxLength(2000);
+            e.HasIndex(x => new { x.IsPublished, x.SortOrder });
+        });
+
+        b.Entity<PortfolioPhoto>(e =>
+        {
+            e.Property(x => x.LargePath).HasMaxLength(300).IsRequired();
+            e.Property(x => x.ThumbPath).HasMaxLength(300).IsRequired();
+            e.Property(x => x.Caption).HasMaxLength(300);
+            e.HasOne<PortfolioWork>().WithMany(w => w.Photos).HasForeignKey(x => x.WorkId).OnDelete(DeleteBehavior.Cascade);
         });
 
         ApplySnakeCase(b);
