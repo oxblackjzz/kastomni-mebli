@@ -1,0 +1,251 @@
+@page "/crm/nalashtuvannia"
+@rendermode CrmRender.Mode
+@inherits CrmPageBase
+@inject UserService UserService
+@inject SettingsService SettingsService
+
+<PageTitle>Налаштування — CRM</PageTitle>
+
+<div class="crm-head"><h1>Налаштування</h1></div>
+<Alerts Error="@Error" Notice="@Notice" />
+
+@if (!Loading)
+{
+    @* ---------- Мій пароль ---------- *@
+    <section class="panel">
+        <h2>Мій пароль</h2>
+        <div class="inline-form">
+            <input type="password" autocomplete="new-password" placeholder="Новий пароль (від @UserService.MinPasswordLength символів)" @bind="MyPassword" aria-label="Новий пароль" />
+            <button type="button" class="btn btn-primary btn-sm" @onclick="ChangeMyPassword">Змінити</button>
+        </div>
+        <p class="muted small">Після зміни пароля на інших пристроях доведеться увійти знову.</p>
+    </section>
+
+    @if (Me.CanSeeMoney)
+    {
+        @* ---------- Шаблон часток ---------- *@
+        <section class="panel">
+            <h2>Частки за замовчуванням</h2>
+            <p class="muted small">
+                Копіюються в кожне нове замовлення. У конкретному замовленні їх можна змінити.
+                Відсотки ви узгоджуєте самі — тут лише задаєте.
+            </p>
+            @if (Templates.Count > 0)
+            {
+                <ul class="shares">
+                    @foreach (var t in Templates)
+                    {
+                        <li class="share @(t.IsActive ? null : "off")">
+                            <strong class="share-name">@t.User.DisplayName</strong>
+                            <span class="small">@Catalog.Label(Catalog.ShareBases, t.Basis) · <span class="mono">@(t.Basis == ShareBasis.Fixed ? Kyiv.Money(t.Value) : t.Value.ToString("0.##", Kyiv.Culture) + "%")</span></span>
+                            <span class="share-actions">
+                                <button type="button" class="crm-link-btn small" @onclick="() => ToggleTemplate(t)">@(t.IsActive ? "вимкнути" : "увімкнути")</button>
+                                <button type="button" class="icon-btn" title="Видалити" @onclick="() => DeleteTemplate(t)">×</button>
+                            </span>
+                        </li>
+                    }
+                </ul>
+            }
+            <div class="inline-form">
+                <select @bind="TplUserId" aria-label="Учасник">
+                    <option value="0">Учасник…</option>
+                    @foreach (var u in Users.Where(u => u.IsActive))
+                    {
+                        <option value="@u.Id">@u.DisplayName</option>
+                    }
+                </select>
+                <select @bind="TplBasis" aria-label="Як рахувати">
+                    @foreach (var (key, label) in Catalog.ShareBases)
+                    {
+                        <option value="@key">@label</option>
+                    }
+                </select>
+                <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="% або сума" @bind="TplValue" aria-label="Значення" />
+                <button type="button" class="btn btn-primary btn-sm" @onclick="AddTemplate">Додати</button>
+            </div>
+        </section>
+
+        @* ---------- Матеріал ---------- *@
+        <section class="panel">
+            <h2>Що вважати матеріалом</h2>
+            <p class="muted small">Для часток «% від матеріалу» — які категорії витрат рахувати.</p>
+            <div class="chips">
+                @foreach (var (key, label) in Catalog.ExpenseCategories)
+                {
+                    <label class="chip">
+                        <input type="checkbox" checked="@Materials.Contains(key)" @onchange="e => ToggleMaterial(key, e)" />
+                        <span>@label</span>
+                    </label>
+                }
+            </div>
+        </section>
+    }
+
+    @if (Me.IsAdmin)
+    {
+        @* ---------- Користувачі ---------- *@
+        <section class="panel">
+            <h2>Користувачі</h2>
+            <ul class="users">
+                @foreach (var u in Users)
+                {
+                    <li class="@(u.IsActive ? null : "off")">
+                        @if (EditId == u.Id)
+                        {
+                            <UserForm Input="Edit" ShowPassword="false" />
+                            <div class="form-row">
+                                <button type="button" class="btn btn-primary btn-sm" @onclick="SaveUser">Зберегти</button>
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => EditId = null">Скасувати</button>
+                            </div>
+                            <div class="inline-form">
+                                <input type="password" autocomplete="new-password" placeholder="Новий пароль" @bind="ResetPassword" aria-label="Новий пароль" />
+                                <button type="button" class="btn btn-ghost btn-sm" @onclick="() => SetPassword(u)">Задати пароль</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="user-row">
+                                <strong>@u.DisplayName</strong>
+                                <span class="muted small mono">@u.Login</span>
+                                <span class="small">@Roles.Label(u.Role)</span>
+                                @if (string.IsNullOrEmpty(u.TelegramChatId))
+                                {
+                                    <span class="muted small">без Telegram</span>
+                                }
+                                <span class="share-actions">
+                                    <button type="button" class="crm-link-btn small" @onclick="() => StartEdit(u)">змінити</button>
+                                    @if (u.Id != Me.Id)
+                                    {
+                                        <button type="button" class="crm-link-btn small" @onclick="() => SetActive(u, !u.IsActive)">@(u.IsActive ? "вимкнути" : "увімкнути")</button>
+                                    }
+                                </span>
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+
+            <h3>Додати користувача</h3>
+            <UserForm Input="NewUser" ShowPassword="true" @bind-Password="NewPassword" />
+            <div class="form-row">
+                <button type="button" class="btn btn-primary btn-sm" @onclick="AddUser">Додати</button>
+            </div>
+            <p class="muted small">
+                Telegram chat id — щоб людина отримувала особисті сповіщення (монтаж, нагадування).
+                Людина пише боту /start, потім відкриває @@userinfobot — там її id.
+            </p>
+        </section>
+    }
+}
+
+@code {
+    private List<User> Users { get; set; } = [];
+    private List<ShareTemplate> Templates { get; set; } = [];
+    private HashSet<string> Materials { get; set; } = [];
+
+    private string MyPassword { get; set; } = "";
+
+    private int TplUserId { get; set; }
+    private string TplBasis { get; set; } = ShareBasis.ContractPercent;
+    private decimal? TplValue { get; set; }
+
+    private int? EditId { get; set; }
+    private UserFormInput Edit { get; set; } = new();
+    private string ResetPassword { get; set; } = "";
+    private UserFormInput NewUser { get; set; } = new() { Role = Roles.Installer };
+    private string NewPassword { get; set; } = "";
+
+    protected override async Task LoadAsync()
+    {
+        if (Me.CanSeeMoney)
+        {
+            Users = await UserService.ListAsync();
+            Templates = await SettingsService.ListTemplatesAsync(Me);
+            Materials = (await SettingsService.GetMaterialCategoriesAsync()).ToHashSet();
+        }
+    }
+
+    private async Task ChangeMyPassword()
+    {
+        if (await Run(() => UserService.SetPasswordAsync(Me, Me.Id, MyPassword), "Пароль змінено."))
+            MyPassword = "";
+    }
+
+    private async Task AddTemplate()
+    {
+        if (await Run(async () =>
+            {
+                if (TplUserId == 0)
+                    throw new CrmException("Оберіть учасника.");
+                await SettingsService.SaveTemplateAsync(Me, null, TplUserId, TplBasis, TplValue ?? 0, true);
+                await LoadAsync();
+            }, "Додано."))
+        {
+            TplUserId = 0;
+            TplValue = null;
+        }
+    }
+
+    private Task ToggleTemplate(ShareTemplate t) => Run(async () =>
+    {
+        await SettingsService.SaveTemplateAsync(Me, t.Id, t.UserId, t.Basis, t.Value, !t.IsActive);
+        await LoadAsync();
+    });
+
+    private Task DeleteTemplate(ShareTemplate t) => Run(async () =>
+    {
+        await SettingsService.DeleteTemplateAsync(Me, t.Id);
+        await LoadAsync();
+    });
+
+    private Task ToggleMaterial(string key, ChangeEventArgs e) => Run(async () =>
+    {
+        if (e.Value is true)
+            Materials.Add(key);
+        else
+            Materials.Remove(key);
+        await SettingsService.SetMaterialCategoriesAsync(Me, Materials);
+    }, "Збережено.");
+
+    private void StartEdit(User u)
+    {
+        EditId = u.Id;
+        ResetPassword = "";
+        Edit = new UserFormInput { Login = u.Login, DisplayName = u.DisplayName, Role = u.Role, Phone = u.Phone, TelegramChatId = u.TelegramChatId };
+    }
+
+    private async Task SaveUser()
+    {
+        if (await Run(async () =>
+            {
+                await UserService.UpdateAsync(Me, EditId!.Value, Edit.ToInput());
+                await LoadAsync();
+            }, "Збережено."))
+            EditId = null;
+    }
+
+    private async Task SetPassword(User u)
+    {
+        if (await Run(() => UserService.SetPasswordAsync(Me, u.Id, ResetPassword), $"Пароль для {u.DisplayName} змінено."))
+            ResetPassword = "";
+    }
+
+    private Task SetActive(User u, bool active) => Run(async () =>
+    {
+        await UserService.SetActiveAsync(Me, u.Id, active);
+        await LoadAsync();
+    });
+
+    private async Task AddUser()
+    {
+        if (await Run(async () =>
+            {
+                await UserService.CreateAsync(Me, NewUser.ToInput(), NewPassword);
+                await LoadAsync();
+            }, "Користувача додано."))
+        {
+            NewUser = new UserFormInput { Role = Roles.Installer };
+            NewPassword = "";
+        }
+    }
+}

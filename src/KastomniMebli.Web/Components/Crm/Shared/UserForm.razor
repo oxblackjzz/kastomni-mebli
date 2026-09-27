@@ -1,0 +1,33 @@
+<div class="crm-form">
+    <div class="grid2">
+        <label class="crm-field"><span>Ім'я</span><input type="text" @bind="Input.DisplayName" maxlength="80" /></label>
+        <label class="crm-field"><span>Логін (латиницею)</span><input type="text" autocapitalize="none" spellcheck="false" @bind="Input.Login" maxlength="40" /></label>
+        <label class="crm-field">
+            <span>Роль</span>
+            <select @bind="Input.Role">
+                @foreach (var (key, label) in Roles.All)
+                {
+                    <option value="@key">@label</option>
+                }
+            </select>
+        </label>
+        <label class="crm-field"><span>Телефон</span><input type="tel" inputmode="tel" @bind="Input.Phone" /></label>
+        <label class="crm-field"><span>Telegram chat id</span><input type="text" inputmode="numeric" @bind="Input.TelegramChatId" /></label>
+        @if (ShowPassword)
+        {
+            <label class="crm-field">
+                <span>Пароль</span>
+                <input type="password" autocomplete="new-password" value="@Password" @onchange="OnPassword" />
+            </label>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public UserFormInput Input { get; set; } = new();
+    [Parameter] public bool ShowPassword { get; set; }
+    [Parameter] public string Password { get; set; } = "";
+    [Parameter] public EventCallback<string> PasswordChanged { get; set; }
+
+    private Task OnPassword(ChangeEventArgs e) => PasswordChanged.InvokeAsync(e.Value?.ToString() ?? "");
+}

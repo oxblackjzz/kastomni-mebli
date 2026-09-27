@@ -1,0 +1,103 @@
+@inject FileService Files
+@inject ILogger<OrderFilesPanel> Log
+
+<section class="panel">
+    <h2>Файли</h2>
+    <Alerts Error="@Error" />
+
+    @if (Order.Files.Count == 0)
+    {
+        <p class="muted small">Креслень і фото ще немає.</p>
+    }
+    else
+    {
+        <ul class="flist">
+            @foreach (var f in Order.Files.OrderByDescending(f => f.UploadedAt))
+            {
+                <li>
+                    <span class="ftag mono">@Catalog.Label(Catalog.FileKinds, f.Kind)</span>
+                    <a href="/crm/fajly/@f.Id" target="_blank" rel="noopener">@f.FileName</a>
+                    <span class="muted small mono">@Size(f.Size)</span>
+                    @if (Me.CanSeeMoney || f.UploadedByUserId == Me.Id)
+                    {
+                        <button type="button" class="icon-btn" title="Видалити файл" @onclick="() => Delete(f)">×</button>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    <div class="inline-form">
+        <select @bind="Kind" aria-label="Що це за файл">
+            @foreach (var (key, label) in Catalog.FileKinds)
+            {
+                <option value="@key">@label</option>
+            }
+        </select>
+        <label class="btn btn-ghost btn-sm file-btn">
+            @(Uploading ? "Завантаження…" : "Додати файли")
+            <InputFile OnChange="Upload" multiple accept="@FileService.AllowedExtensions" disabled="@Uploading" />
+        </label>
+    </div>
+    <p class="muted small">PDF, DWG, DXF, фото — до @(Files.MaxBytes / 1024 / 1024) МБ кожен.</p>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public Order Order { get; set; } = null!;
+    [Parameter, EditorRequired] public CurrentUser Me { get; set; } = null!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private string Kind { get; set; } = "drawing";
+    private bool Uploading { get; set; }
+    private string? Error { get; set; }
+
+    private async Task Upload(InputFileChangeEventArgs e)
+    {
+        Error = null;
+        Uploading = true;
+        try
+        {
+            foreach (var file in e.GetMultipleFiles(20))
+            {
+                if (file.Size > Files.MaxBytes)
+                {
+                    Error = $"{file.Name}: файл завеликий.";
+                    continue;
+                }
+                await using var stream = file.OpenReadStream(Files.MaxBytes);
+                await Files.UploadAsync(Me, Order.Id, Kind, file.Name, stream, file.Size);
+            }
+            await OnChanged.InvokeAsync();
+        }
+        catch (CrmException ex)
+        {
+            Error = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Log.LogError(ex, "Помилка завантаження файлу");
+            Error = "Не вдалося завантажити файл.";
+        }
+        finally
+        {
+            Uploading = false;
+        }
+    }
+
+    private async Task Delete(OrderFile f)
+    {
+        Error = null;
+        try
+        {
+            await Files.DeleteAsync(Me, f.Id);
+            await OnChanged.InvokeAsync();
+        }
+        catch (CrmException ex)
+        {
+            Error = ex.Message;
+        }
+    }
+
+    private static string Size(long bytes) =>
+        bytes >= 1024 * 1024 ? $"{bytes / 1024d / 1024d:0.#} МБ" : $"{Math.Max(1, bytes / 1024)} КБ";
+}

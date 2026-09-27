@@ -1,0 +1,179 @@
+@page "/crm/dashboard"
+@rendermode CrmRender.Mode
+@attribute [Authorize(Roles = Roles.MoneyViewers)]
+@inherits CrmPageBase
+@inject DashboardService DashboardService
+@inject TimeProvider Time
+
+<PageTitle>Дашборд — CRM</PageTitle>
+
+<div class="crm-head">
+    <h1>Дашборд</h1>
+    <div class="month-nav">
+        <button type="button" class="icon-btn" @onclick="() => Shift(-1)" aria-label="Попередній місяць">‹</button>
+        <span class="mono month-label">@MonthName</span>
+        <button type="button" class="icon-btn" @onclick="() => Shift(1)" aria-label="Наступний місяць">›</button>
+    </div>
+</div>
+<Alerts Error="@Error" />
+
+@if (Report is { } r)
+{
+    var site = r.Sources.First(s => s.Source == "site");
+
+    @* Головна метрика власника — гроші з сайту *@
+    <section class="panel hero-metric">
+        <span class="tile-label">Гроші з сайту за місяць</span>
+        <span class="hero-value mono">@Kyiv.Money(site.IncomeInMonth)</span>
+        <span class="muted small">
+            за весь час — <span class="mono">@Kyiv.Money(site.IncomeAllTime)</span> ·
+            заявок із сайту цього місяця — <span class="mono">@site.Leads</span>, договорів із них — <span class="mono">@site.Contracts</span>
+        </span>
+    </section>
+
+    <section class="panel">
+        <h2>Заявки → замір → договір</h2>
+        <p class="muted small">Замовлення, створені цього місяця, і скільки з них дійшло далі.</p>
+        <div class="funnel">
+            @foreach (var (label, value, rate) in new[]
+            {
+                ("Заявки", r.Funnel.Leads, 100m),
+                ("Замір", r.Funnel.Measured, r.Funnel.MeasuredRate),
+                ("Договір", r.Funnel.Contracts, r.Funnel.ContractRate),
+            })
+            {
+                <div class="funnel-row">
+                    <span class="funnel-label">@label</span>
+                    <span class="funnel-track"><span class="funnel-bar" style="width:@((value == 0 ? 0m : Math.Max(rate, 2m)).ToString(System.Globalization.CultureInfo.InvariantCulture))%"></span></span>
+                    <span class="mono funnel-num">@value</span>
+                    <span class="mono muted funnel-rate">@(r.Funnel.Leads == 0 ? "—" : rate.ToString("0.#", Kyiv.Culture) + "%")</span>
+                </div>
+            }
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Гроші за місяць</h2>
+        <p class="muted small">За датою оплати й витрати — те, що реально прийшло й пішло.</p>
+        <div class="tiles">
+            <div class="tile"><span class="tile-label">Виручка</span><span class="tile-value">@Kyiv.Money(r.Cash.Income)</span></div>
+            <div class="tile"><span class="tile-label">Витрати</span><span class="tile-value">@Kyiv.Money(r.Cash.Expenses)</span></div>
+            <div class="tile"><span class="tile-label">Виплачено часток</span><span class="tile-value">@Kyiv.Money(r.Cash.SharesPaid)</span></div>
+            <div class="tile tile-accent"><span class="tile-label">Залишилось</span><span class="tile-value">@Kyiv.Money(r.Cash.Net)</span></div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Завершені цього місяця</h2>
+        <div class="tiles">
+            <div class="tile"><span class="tile-label">Замовлень</span><span class="tile-value">@r.Completed.Count</span></div>
+            <div class="tile"><span class="tile-label">Сума договорів</span><span class="tile-value">@Kyiv.Money(r.Completed.ContractsTotal)</span></div>
+            <div class="tile"><span class="tile-label">Витрати</span><span class="tile-value">@Kyiv.Money(r.Completed.Expenses)</span></div>
+            <div class="tile"><span class="tile-label">Частки</span><span class="tile-value">@Kyiv.Money(r.Completed.Shares)</span></div>
+            <div class="tile tile-accent"><span class="tile-label">Прибуток</span><span class="tile-value">@Kyiv.Money(r.Completed.Profit)</span></div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Учасники</h2>
+        @if (r.People.Count == 0)
+        {
+            <p class="muted small">Часток ще немає. Задайте шаблон часток у налаштуваннях.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="crm-table">
+                    <thead>
+                        <tr><th>Хто</th><th>Заробив у місяці</th><th>Виплачено в місяці</th><th>Винні (завершені)</th><th>Нараховується (в роботі)</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in r.People)
+                        {
+                            <tr>
+                                <td>@p.Name</td>
+                                <td class="mono">@Kyiv.Money(p.EarnedInMonth)</td>
+                                <td class="mono">@Kyiv.Money(p.PaidInMonth)</td>
+                                <td class="mono @(p.Owed > 0 ? "warn" : null)">@Kyiv.Money(p.Owed)</td>
+                                <td class="mono muted">@Kyiv.Money(p.Accruing)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>За джерелом</h2>
+        <div class="table-wrap">
+            <table class="crm-table">
+                <thead>
+                    <tr><th>Джерело</th><th>Заявок</th><th>Договорів</th><th>Виручка в місяці</th><th>Прибуток (завершені)</th><th>Виручка за весь час</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in r.Sources)
+                    {
+                        <tr class="@(s.Source == "site" ? "hl" : null)">
+                            <td>@s.Label</td>
+                            <td class="mono">@s.Leads</td>
+                            <td class="mono">@s.Contracts</td>
+                            <td class="mono">@Kyiv.Money(s.IncomeInMonth)</td>
+                            <td class="mono">@Kyiv.Money(s.ProfitInMonth)</td>
+                            <td class="mono">@Kyiv.Money(s.IncomeAllTime)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel">
+        <h2>Клієнти винні</h2>
+        @if (r.ClientDebts.Count == 0)
+        {
+            <p class="muted small">Боргів немає.</p>
+        }
+        else
+        {
+            <ul class="mlist">
+                @foreach (var d in r.ClientDebts)
+                {
+                    <li>
+                        <a class="mono small" href="/crm/zamovlennia/@d.OrderId">@d.Number</a>
+                        <span>@d.ClientName</span>
+                        <span class="mono warn">@Kyiv.Money(d.Due)</span>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code {
+    private int Year { get; set; }
+    private int Month { get; set; }
+    private MonthReport? Report { get; set; }
+
+    private static readonly string[] Months =
+        ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];
+
+    private string MonthName => $"{Months[Month - 1]} {Year}";
+
+    protected override async Task LoadAsync()
+    {
+        if (Year == 0)
+        {
+            var today = Kyiv.Today(Time);
+            (Year, Month) = (today.Year, today.Month);
+        }
+        Report = await DashboardService.BuildAsync(Me, Year, Month);
+    }
+
+    private Task Shift(int months)
+    {
+        var d = new DateOnly(Year, Month, 1).AddMonths(months);
+        (Year, Month) = (d.Year, d.Month);
+        return Run(LoadAsync);
+    }
+}

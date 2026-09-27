@@ -1,0 +1,77 @@
+@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@using KastomniMebli.Web.Crm.Auth
+@* Макет лежить поза папкою Crm: її _Imports задає @layout CrmLayout, і макет загортав би сам себе. *@
+
+<header class="crm-top">
+    <div class="crm-top-row">
+        <a class="crm-brand" href="/crm">
+            <svg class="logo-mark" viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" />
+                <line x1="12" y1="3" x2="12" y2="21" />
+                <line x1="3" y1="8" x2="21" y2="8" />
+            </svg>
+            <span>CRM</span>
+        </a>
+        <nav class="crm-nav" aria-label="CRM">
+            <NavLink href="/crm" Match="NavLinkMatch.All">Замовлення</NavLink>
+            @if (Me?.CanSeeMoney == true)
+            {
+                <NavLink href="/crm/klienty">Клієнти</NavLink>
+                <NavLink href="/crm/dashboard">Дашборд</NavLink>
+            }
+            <NavLink href="/crm/nalashtuvannia">Налаштування</NavLink>
+        </nav>
+        <div class="crm-user">
+            <span class="crm-user-name">@Me?.Name</span>
+            <form method="post" action="@AuthEndpoints.LogoutPath">
+                <AntiforgeryToken />
+                <button type="submit" class="crm-link-btn">Вийти</button>
+            </form>
+        </div>
+    </div>
+</header>
+
+<main class="crm-main">
+    @Body
+</main>
+
+@* Нижня панель на телефоні — великі кнопки під великий палець *@
+<nav class="crm-tabbar" aria-label="CRM (мобільна)">
+    <NavLink href="/crm" Match="NavLinkMatch.All">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" /><line x1="4" y1="10" x2="20" y2="10" /><line x1="10" y1="10" x2="10" y2="20" /></svg>
+        <span>Замовлення</span>
+    </NavLink>
+    @if (Me?.CanSeeMoney == true)
+    {
+        <NavLink href="/crm/zamovlennia/nove">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            <span>Нове</span>
+        </NavLink>
+        <NavLink href="/crm/dashboard">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="5" y1="20" x2="5" y2="12" /><line x1="12" y1="20" x2="12" y2="6" /><line x1="19" y1="20" x2="19" y2="14" /></svg>
+            <span>Дашборд</span>
+        </NavLink>
+        <NavLink href="/crm/klienty">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5" /><path d="M5 20c1-4 4-6 7-6s6 2 7 6" /></svg>
+            <span>Клієнти</span>
+        </NavLink>
+    }
+    <NavLink href="/crm/nalashtuvannia">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" /></svg>
+        <span>Ще</span>
+    </NavLink>
+</nav>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthState { get; set; }
+
+    private CurrentUser? Me { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (AuthState is not null)
+            Me = CurrentUser.From((await AuthState).User);
+    }
+}

@@ -1,0 +1,45 @@
+@page "/crm/vhid"
+@layout CrmBareLayout
+@using KastomniMebli.Web.Crm.Auth
+
+<PageTitle>Вхід — CRM</PageTitle>
+
+<div class="login-card sheet">
+    <p class="sheet-label"><span class="mono">CRM</span> Кастомні Меблі</p>
+    <h1>Вхід</h1>
+
+    @if (Error == "limit")
+    {
+        <div class="crm-alert crm-alert-error" role="alert">Забагато спроб. Зачекайте 15 хвилин.</div>
+    }
+    else if (Error == "expired")
+    {
+        <div class="crm-alert crm-alert-error" role="alert">Сторінка застаріла. Введіть логін і пароль ще раз.</div>
+    }
+    else if (Error is not null)
+    {
+        <div class="crm-alert crm-alert-error" role="alert">Невірний логін або пароль.</div>
+    }
+
+    <form method="post" action="@AuthEndpoints.LoginSubmitPath" class="crm-form">
+        <AntiforgeryToken />
+        <input type="hidden" name="returnUrl" value="@AuthEndpoints.SafeReturnUrl(ReturnUrl)" />
+        <label class="crm-field">
+            <span>Логін</span>
+            <input name="login" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus />
+        </label>
+        <label class="crm-field">
+            <span>Пароль</span>
+            <input name="password" type="password" autocomplete="current-password" required />
+        </label>
+        <button type="submit" class="btn btn-primary">Увійти</button>
+    </form>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    private string? ReturnUrl { get; set; }
+}

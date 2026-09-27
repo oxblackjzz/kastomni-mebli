@@ -1,0 +1,91 @@
+@page "/crm/zamovlennia/nove"
+@rendermode CrmRender.Mode
+@attribute [Authorize(Roles = Roles.MoneyViewers)]
+@inherits CrmPageBase
+@inject OrderService OrderService
+@inject NavigationManager Nav
+
+<PageTitle>Нове замовлення — CRM</PageTitle>
+
+<a class="crm-back" href="/crm">← Замовлення</a>
+<h1>Нове замовлення</h1>
+<Alerts Error="@Error" />
+
+<section class="panel">
+    <div class="crm-form">
+        <div class="grid2">
+            <label class="crm-field">
+                <span>Ім'я клієнта *</span>
+                <input type="text" @bind="Input.ClientName" maxlength="120" autocomplete="off" />
+            </label>
+            <label class="crm-field">
+                <span>Телефон</span>
+                <input type="tel" inputmode="tel" @bind="Input.Phone" placeholder="067 123 45 67" autocomplete="off" />
+            </label>
+        </div>
+        <p class="muted small">Якщо клієнт із таким телефоном уже є — замовлення прив'яжеться до нього.</p>
+        <label class="crm-field">
+            <span>Адреса</span>
+            <input type="text" @bind="Input.Address" maxlength="300" />
+        </label>
+        <label class="crm-field">
+            <span>Звідки клієнт</span>
+            <select @bind="Input.Source">
+                @foreach (var (key, label) in Catalog.Sources)
+                {
+                    <option value="@key">@label</option>
+                }
+            </select>
+        </label>
+        <fieldset class="crm-field">
+            <legend>Що робимо</legend>
+            <div class="chips">
+                @foreach (var (key, label) in FurnitureTypes.All)
+                {
+                    <label class="chip">
+                        <input type="checkbox" checked="@Input.FurnitureTypes.Contains(key)" @onchange="e => Toggle(key, e)" />
+                        <span>@label</span>
+                    </label>
+                }
+            </div>
+        </fieldset>
+        <label class="crm-field">
+            <span>Сума договору, грн (якщо вже відома)</span>
+            <input type="number" inputmode="decimal" step="0.01" min="0" @bind="Input.ContractAmount" />
+        </label>
+        <label class="crm-field">
+            <span>Коментар</span>
+            <textarea rows="4" @bind="Input.Comment" maxlength="4000"></textarea>
+        </label>
+        <div class="form-row">
+            <button type="button" class="btn btn-primary" disabled="@Saving" @onclick="Save">Створити</button>
+        </div>
+    </div>
+</section>
+
+@code {
+    private NewOrderInput Input { get; set; } = new();
+    private bool Saving { get; set; }
+
+    private async Task Save()
+    {
+        Saving = true;
+        var id = 0;
+        if (await Run(async () => id = await OrderService.CreateAsync(Me, Input)))
+            Nav.NavigateTo($"/crm/zamovlennia/{id}");
+        Saving = false;
+    }
+
+    private void Toggle(string key, ChangeEventArgs e)
+    {
+        if (e.Value is true)
+        {
+            if (!Input.FurnitureTypes.Contains(key))
+                Input.FurnitureTypes.Add(key);
+        }
+        else
+        {
+            Input.FurnitureTypes.Remove(key);
+        }
+    }
+}

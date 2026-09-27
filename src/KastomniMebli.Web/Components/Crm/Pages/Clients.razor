@@ -1,0 +1,56 @@
+@page "/crm/klienty"
+@rendermode CrmRender.Mode
+@attribute [Authorize(Roles = Roles.MoneyViewers)]
+@inherits CrmPageBase
+@inject OrderService OrderService
+
+<PageTitle>Клієнти — CRM</PageTitle>
+
+<div class="crm-head">
+    <h1>Клієнти</h1>
+</div>
+<Alerts Error="@Error" />
+
+<div class="crm-filters">
+    <input class="crm-search" type="search" placeholder="Пошук: ім'я, телефон, адреса"
+           @bind="Search" @bind:event="oninput" @bind:after="Reload" />
+</div>
+
+@if (Loading)
+{
+    <p class="muted">Завантаження…</p>
+}
+else if (Items.Count == 0)
+{
+    <div class="crm-empty"><p>Клієнтів не знайдено.</p></div>
+}
+else
+{
+    <ul class="olist">
+        @foreach (var c in Items)
+        {
+            <li class="orow">
+                <a class="orow-main" href="@(c.LastOrderId is { } id ? $"/crm/zamovlennia/{id}" : "/crm/klienty")">
+                    <strong class="orow-client">@c.Name</strong>
+                    <span class="muted small">@Catalog.Label(Catalog.Sources, c.Source)@(c.Address is null ? "" : " · " + c.Address)</span>
+                    <span class="mono small">Замовлень: @c.OrdersCount</span>
+                </a>
+                @if (c.Phone is { } phone)
+                {
+                    <a class="orow-call" href="tel:@phone" aria-label="Подзвонити @c.Name">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 3.5h3l1.5 4-2 1.3a11 11 0 0 0 6.1 6.1l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2z" /></svg>
+                    </a>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<ClientListItem> Items { get; set; } = [];
+    private string? Search { get; set; }
+
+    protected override async Task LoadAsync() => Items = await OrderService.ListClientsAsync(Me, Search);
+
+    private Task Reload() => Run(LoadAsync);
+}

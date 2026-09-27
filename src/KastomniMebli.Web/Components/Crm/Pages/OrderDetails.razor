@@ -1,0 +1,360 @@
+@page "/crm/zamovlennia/{Id:int}"
+@rendermode CrmRender.Mode
+@inherits CrmPageBase
+@inject OrderService OrderService
+@inject UserService UserService
+
+<PageTitle>@(Order?.Number ?? "Замовлення") — CRM</PageTitle>
+
+<a class="crm-back" href="/crm">← Замовлення</a>
+<Alerts Error="@Error" Notice="@Notice" />
+
+@if (Loading)
+{
+    <p class="muted">Завантаження…</p>
+}
+else if (Order is not null)
+{
+    <div class="od-head">
+        <div class="od-title">
+            <span class="mono od-no">@Order.Number</span>
+            <StatusBadge Status="@Order.Status" />
+        </div>
+        <h1 class="od-client">@Order.Client.Name</h1>
+        @if (Order.Client.Phone is { } phone)
+        {
+            <a class="btn btn-primary od-call" href="tel:@phone">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 3.5h3l1.5 4-2 1.3a11 11 0 0 0 6.1 6.1l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2z" /></svg>
+                <span class="mono">@PhoneNumber.Format(phone)</span>
+            </a>
+        }
+    </div>
+
+    @* ---------- Статус ---------- *@
+    <section class="panel">
+        <div class="status-row">
+            @if (Me.IsInstaller)
+            {
+                @if (Order.Status == OrderStatuses.Installation)
+                {
+                    <button type="button" class="btn btn-primary" @onclick="() => SetStatus(OrderStatuses.Done)">Монтаж завершено</button>
+                }
+            }
+            else
+            {
+                @if (OrderStatuses.Next(Order.Status) is { } next)
+                {
+                    <button type="button" class="btn btn-primary" @onclick="() => SetStatus(next)">→ @OrderStatuses.Label(next)</button>
+                }
+                <label class="status-select">
+                    <span class="sr-only">Змінити статус</span>
+                    <select value="@Order.Status" @onchange="e => SetStatus((string)e.Value!)">
+                        @foreach (var (key, label) in OrderStatuses.All)
+                        {
+                            <option value="@key">@label</option>
+                        }
+                    </select>
+                </label>
+            }
+        </div>
+        <ol class="progress" aria-label="Етапи">
+            @foreach (var (key, label) in OrderStatuses.Flow)
+            {
+                var rank = OrderStatuses.Rank(key);
+                var current = OrderStatuses.Rank(Order.Status);
+                <li class="@(rank < current ? "done" : rank == current ? "now" : null)" title="@label"></li>
+            }
+        </ol>
+    </section>
+
+    @* ---------- Дати й деталі ---------- *@
+    <section class="panel">
+        <div class="panel-head">
+            <h2>Замовлення</h2>
+            @if (Me.CanSeeMoney && !EditingDetails)
+            {
+                <button type="button" class="crm-link-btn" @onclick="StartEditDetails">Змінити</button>
+            }
+        </div>
+
+        @if (EditingDetails)
+        {
+            <div class="crm-form">
+                <fieldset class="crm-field">
+                    <legend>Що робимо</legend>
+                    <div class="chips">
+                        @foreach (var (key, label) in FurnitureTypes.All)
+                        {
+                            <label class="chip">
+                                <input type="checkbox" checked="@Details.FurnitureTypes.Contains(key)" @onchange="e => Toggle(Details.FurnitureTypes, key, e)" />
+                                <span>@label</span>
+                            </label>
+                        }
+                    </div>
+                </fieldset>
+                <div class="grid2">
+                    <label class="crm-field">
+                        <span>Замір</span>
+                        <input type="datetime-local" @bind="Details.MeasureDateLocal" @bind:format="yyyy-MM-ddTHH:mm" />
+                    </label>
+                    <label class="crm-field">
+                        <span>Монтаж</span>
+                        <input type="datetime-local" @bind="Details.InstallDateLocal" @bind:format="yyyy-MM-ddTHH:mm" />
+                    </label>
+                    <label class="crm-field">
+                        <span>Сума договору, грн</span>
+                        <input type="number" inputmode="decimal" step="0.01" min="0" @bind="Details.ContractAmount" />
+                    </label>
+                    <label class="crm-field">
+                        <span>Джерело</span>
+                        <select @bind="Details.Source">
+                            @foreach (var (key, label) in Catalog.Sources)
+                            {
+                                <option value="@key">@label</option>
+                            }
+                        </select>
+                    </label>
+                </div>
+                <label class="crm-field">
+                    <span>Адреса</span>
+                    <input type="text" @bind="Details.Address" maxlength="300" />
+                </label>
+                <label class="crm-field">
+                    <span>Коментар</span>
+                    <textarea rows="4" @bind="Details.Comment" maxlength="4000"></textarea>
+                </label>
+                <div class="form-row">
+                    <button type="button" class="btn btn-primary" @onclick="SaveDetails">Зберегти</button>
+                    <button type="button" class="btn btn-ghost" @onclick="() => EditingDetails = false">Скасувати</button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <dl class="facts-grid">
+                <div><dt>Що</dt><dd>@(Order.FurnitureTypes.Count == 0 ? "—" : string.Join(", ", Order.FurnitureTypes.Select(FurnitureTypes.Label)))</dd></div>
+                <div><dt>Адреса</dt><dd>@(Order.Address ?? Order.Client.Address ?? "—")</dd></div>
+                <div><dt>Замір</dt><dd class="mono">@Kyiv.Format(Order.MeasureDate)</dd></div>
+                <div><dt>Монтаж</dt><dd class="mono">@Kyiv.Format(Order.InstallDate)</dd></div>
+                @if (Me.CanSeeMoney)
+                {
+                    <div><dt>Договір</dt><dd class="mono">@(Order.ContractAmount is { } c ? Kyiv.Money(c) : "—")</dd></div>
+                    <div><dt>Джерело</dt><dd>@Catalog.Label(Catalog.Sources, Order.Source)</dd></div>
+                }
+                <div><dt>Заявка</dt><dd class="mono">@Kyiv.Format(Order.CreatedAt)</dd></div>
+                @if (Order.ApprovedAt is { } approved)
+                {
+                    <div><dt>Погоджено</dt><dd class="mono">@Kyiv.Format(approved)</dd></div>
+                }
+                @if (Order.CompletedAt is { } completed)
+                {
+                    <div><dt>Завершено</dt><dd class="mono">@Kyiv.Format(completed)</dd></div>
+                }
+            </dl>
+            @if (Order.Comment is { } comment)
+            {
+                <p class="od-comment">@comment</p>
+            }
+        }
+    </section>
+
+    @* ---------- Клієнт ---------- *@
+    @if (Me.CanSeeMoney)
+    {
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Клієнт</h2>
+                @if (!EditingClient)
+                {
+                    <button type="button" class="crm-link-btn" @onclick="StartEditClient">Змінити</button>
+                }
+            </div>
+            @if (EditingClient)
+            {
+                <div class="crm-form">
+                    <div class="grid2">
+                        <label class="crm-field"><span>Ім'я</span><input type="text" @bind="ClientForm.Name" maxlength="120" /></label>
+                        <label class="crm-field"><span>Телефон</span><input type="tel" inputmode="tel" @bind="ClientForm.Phone" /></label>
+                    </div>
+                    <label class="crm-field"><span>Адреса</span><input type="text" @bind="ClientForm.Address" maxlength="300" /></label>
+                    <label class="crm-field">
+                        <span>Звідки прийшов</span>
+                        <select @bind="ClientForm.Source">
+                            @foreach (var (key, label) in Catalog.Sources)
+                            {
+                                <option value="@key">@label</option>
+                            }
+                        </select>
+                    </label>
+                    <label class="crm-field"><span>Примітка</span><textarea rows="2" @bind="ClientForm.Note" maxlength="2000"></textarea></label>
+                    <div class="form-row">
+                        <button type="button" class="btn btn-primary" @onclick="SaveClient">Зберегти</button>
+                        <button type="button" class="btn btn-ghost" @onclick="() => EditingClient = false">Скасувати</button>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <dl class="facts-grid">
+                    <div><dt>Ім'я</dt><dd>@Order.Client.Name</dd></div>
+                    <div><dt>Телефон</dt><dd class="mono">@(Order.Client.Phone is { } p ? PhoneNumber.Format(p) : "—")</dd></div>
+                    <div><dt>Адреса</dt><dd>@(Order.Client.Address ?? "—")</dd></div>
+                    <div><dt>Звідки</dt><dd>@Catalog.Label(Catalog.Sources, Order.Client.Source)</dd></div>
+                </dl>
+                @if (Order.Client.Note is { } note)
+                {
+                    <p class="od-comment">@note</p>
+                }
+            }
+        </section>
+    }
+
+    @* ---------- Відповідальні ---------- *@
+    <section class="panel">
+        <h2>Відповідальні</h2>
+        <div class="grid3">
+            @foreach (var (role, label) in Catalog.AssigneeRoles)
+            {
+                var current = Order.Assignees.FirstOrDefault(a => a.Role == role);
+                @if (Me.CanSeeMoney)
+                {
+                    <label class="crm-field">
+                        <span>@label</span>
+                        <select value="@(current?.UserId.ToString() ?? "")" @onchange="e => SetAssignee(role, (string?)e.Value)">
+                            <option value="">—</option>
+                            @foreach (var u in Users)
+                            {
+                                <option value="@u.Id">@u.DisplayName</option>
+                            }
+                        </select>
+                    </label>
+                }
+                else
+                {
+                    <div class="crm-field"><span>@label</span><strong>@(current?.User.DisplayName ?? "—")</strong></div>
+                }
+            }
+        </div>
+    </section>
+
+    @if (Me.CanSeeMoney && Money is not null)
+    {
+        <OrderMoneyPanel Order="Order" Money="Money" Users="Users" Me="Me" OnChanged="ReloadAsync" />
+    }
+
+    <OrderFilesPanel Order="Order" Me="Me" OnChanged="ReloadAsync" />
+
+    <section class="panel">
+        <h2>Історія</h2>
+        <ol class="history">
+            @foreach (var h in Order.StatusHistory.OrderByDescending(h => h.ChangedAt))
+            {
+                <li>
+                    <span class="mono small">@Kyiv.Format(h.ChangedAt)</span>
+                    <span>@OrderStatuses.Label(h.ToStatus)</span>
+                    @if (h.ChangedByUserId is { } uid)
+                    {
+                        <span class="muted small">@UserName(uid)</span>
+                    }
+                </li>
+            }
+        </ol>
+    </section>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Order? Order { get; set; }
+    private OrderMoney? Money { get; set; }
+    private List<User> Users { get; set; } = [];
+
+    private bool EditingDetails { get; set; }
+    private OrderDetailsInput Details { get; set; } = new();
+    private bool EditingClient { get; set; }
+    private ClientInput ClientForm { get; set; } = new();
+
+    protected override async Task LoadAsync()
+    {
+        Order = await OrderService.GetAsync(Me, Id);
+        Money = Me.CanSeeMoney ? await OrderService.MoneyAsync(Order) : null;
+        if (Me.CanSeeMoney)
+            Users = await UserService.ListAsync(activeOnly: true);
+    }
+
+    private Task ReloadAsync() => Run(LoadAsync);
+
+    private Task SetStatus(string status) =>
+        Run(async () =>
+        {
+            await OrderService.ChangeStatusAsync(Me, Id, status);
+            await LoadAsync();
+        }, "Статус: " + OrderStatuses.Label(status));
+
+    private Task SetAssignee(string role, string? userId) =>
+        Run(async () =>
+        {
+            await OrderService.SetAssigneeAsync(Me, Id, role, int.TryParse(userId, out var uid) ? uid : null);
+            await LoadAsync();
+        }, "Збережено");
+
+    private void StartEditDetails()
+    {
+        Details = new OrderDetailsInput
+        {
+            FurnitureTypes = [.. Order!.FurnitureTypes],
+            Address = Order.Address,
+            Comment = Order.Comment,
+            Source = Order.Source,
+            ContractAmount = Order.ContractAmount,
+            MeasureDateLocal = Order.MeasureDate is { } m ? Kyiv.ToLocal(m) : null,
+            InstallDateLocal = Order.InstallDate is { } i ? Kyiv.ToLocal(i) : null,
+        };
+        EditingDetails = true;
+    }
+
+    private async Task SaveDetails()
+    {
+        if (await Run(async () =>
+            {
+                await OrderService.UpdateDetailsAsync(Me, Id, Details);
+                await LoadAsync();
+            }, "Збережено"))
+            EditingDetails = false;
+    }
+
+    private void StartEditClient()
+    {
+        var c = Order!.Client;
+        ClientForm = new ClientInput { Name = c.Name, Phone = c.Phone, Address = c.Address, Source = c.Source, Note = c.Note };
+        EditingClient = true;
+    }
+
+    private async Task SaveClient()
+    {
+        if (await Run(async () =>
+            {
+                await OrderService.UpdateClientAsync(Me, Order!.ClientId, ClientForm);
+                await LoadAsync();
+            }, "Збережено"))
+            EditingClient = false;
+    }
+
+    private static void Toggle(List<string> list, string key, ChangeEventArgs e)
+    {
+        if (e.Value is true)
+        {
+            if (!list.Contains(key))
+                list.Add(key);
+        }
+        else
+        {
+            list.Remove(key);
+        }
+    }
+
+    private string UserName(int id) =>
+        Users.FirstOrDefault(u => u.Id == id)?.DisplayName
+        ?? Order?.Assignees.FirstOrDefault(a => a.UserId == id)?.User.DisplayName
+        ?? "";
+}

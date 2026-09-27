@@ -1,0 +1,174 @@
+@page "/crm"
+@rendermode CrmRender.Mode
+@inherits CrmPageBase
+@inject OrderService OrderService
+
+<PageTitle>Замовлення — CRM</PageTitle>
+
+<div class="crm-head">
+    <h1>Замовлення</h1>
+    <div class="crm-head-actions">
+        @if (Me.CanSeeMoney)
+        {
+            <div class="seg" role="group" aria-label="Вигляд">
+                <button type="button" class="@(Kanban ? null : "on")" @onclick="() => SetView(false)">Список</button>
+                <button type="button" class="@(Kanban ? "on" : null)" @onclick="() => SetView(true)">Канбан</button>
+            </div>
+            <a class="btn btn-primary btn-sm crm-hide-mobile" href="/crm/zamovlennia/nove">+ Нове замовлення</a>
+        }
+    </div>
+</div>
+
+<Alerts Error="@Error" Notice="@Notice" />
+
+@if (!Kanban)
+{
+    <div class="crm-filters">
+        <input class="crm-search" type="search" placeholder="Пошук: ім'я, телефон, №, адреса"
+               @bind="Search" @bind:event="oninput" @bind:after="LoadAsync" />
+        <div class="chips-scroll">
+            @foreach (var (key, label) in Filters)
+            {
+                <button type="button" class="fchip @(Filter == key ? "on" : null)" @onclick="() => SetFilter(key)">@label</button>
+            }
+        </div>
+    </div>
+}
+
+@if (Loading)
+{
+    <p class="muted">Завантаження…</p>
+}
+else if (Items.Count == 0)
+{
+    <div class="crm-empty">
+        @if (Me.IsInstaller)
+        {
+            <p>Вам поки не призначено жодного замовлення.</p>
+        }
+        else
+        {
+            <p>Замовлень не знайдено.</p>
+        }
+    </div>
+}
+else if (Kanban)
+{
+    <div class="kanban">
+        @foreach (var (status, label) in OrderStatuses.Flow)
+        {
+            var column = Items.Where(i => i.Status == status).ToList();
+            <section class="kanban-col">
+                <header class="kanban-col-head">
+                    <span>@label</span>
+                    <span class="mono muted">@column.Count</span>
+                </header>
+                @foreach (var item in column)
+                {
+                    <article class="kcard">
+                        <a class="kcard-link" href="/crm/zamovlennia/@item.Id">
+                            <span class="mono kcard-no">@item.Number</span>
+                            <strong>@item.ClientName</strong>
+                            <span class="muted small">@Types(item)</span>
+                            @if (NextDate(item) is { } d)
+                            {
+                                <span class="mono small">@d</span>
+                            }
+                            @if (item.ContractAmount is { } sum)
+                            {
+                                <span class="mono small">@Kyiv.Money(sum)</span>
+                            }
+                        </a>
+                        @if (OrderStatuses.Next(item.Status) is { } next)
+                        {
+                            <button type="button" class="kcard-next" @onclick="() => Advance(item, next)"
+                                    title="Перевести в «@OrderStatuses.Label(next)»">→ @OrderStatuses.Label(next)</button>
+                        }
+                    </article>
+                }
+            </section>
+        }
+    </div>
+}
+else
+{
+    <ul class="olist">
+        @foreach (var item in Items)
+        {
+            <li class="orow">
+                <a class="orow-main" href="/crm/zamovlennia/@item.Id">
+                    <div class="orow-top">
+                        <span class="mono orow-no">@item.Number</span>
+                        <StatusBadge Status="@item.Status" />
+                    </div>
+                    <strong class="orow-client">@item.ClientName</strong>
+                    <span class="muted small">@Types(item)@(item.Address is null ? "" : " · " + item.Address)</span>
+                    <div class="orow-meta mono small">
+                        @if (NextDate(item) is { } d)
+                        {
+                            <span>@d</span>
+                        }
+                        @if (item.ContractAmount is { } sum)
+                        {
+                            <span>@Kyiv.Money(sum)</span>
+                        }
+                    </div>
+                </a>
+                @if (item.ClientPhone is { } phone)
+                {
+                    <a class="orow-call" href="tel:@phone" aria-label="Подзвонити @item.ClientName">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 3.5h3l1.5 4-2 1.3a11 11 0 0 0 6.1 6.1l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2z" /></svg>
+                    </a>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<OrderListItem> Items { get; set; } = [];
+    private string Filter { get; set; } = "open";
+    private string? Search { get; set; }
+    private bool Kanban { get; set; }
+
+    private static readonly (string Key, string Label)[] Filters =
+        [("open", "Відкриті"), ("all", "Усі"), .. OrderStatuses.All];
+
+    protected override async Task LoadAsync()
+    {
+        // Канбан показує всі відкриті, фільтри — лише для списку.
+        var status = Kanban ? "open" : Filter == "all" ? null : Filter;
+        Items = await OrderService.ListAsync(Me, status, Kanban ? null : Search);
+    }
+
+    private async Task SetFilter(string key)
+    {
+        Filter = key;
+        await Run(LoadAsync);
+    }
+
+    private async Task Advance(OrderListItem item, string next)
+    {
+        await Run(async () =>
+        {
+            await OrderService.ChangeStatusAsync(Me, item.Id, next);
+            await LoadAsync();
+        }, $"{item.Number}: {OrderStatuses.Label(next)}");
+    }
+
+    private async Task SetView(bool kanban)
+    {
+        Kanban = kanban;
+        await Run(LoadAsync);
+    }
+
+    private static string Types(OrderListItem item) =>
+        item.FurnitureTypes.Count == 0 ? "—" : string.Join(", ", item.FurnitureTypes.Select(FurnitureTypes.Label));
+
+    private static string? NextDate(OrderListItem item) => item.Status switch
+    {
+        OrderStatuses.MeasureScheduled when item.MeasureDate is { } m => "Замір " + Kyiv.Format(m, "dd.MM HH:mm"),
+        OrderStatuses.Installation or OrderStatuses.Production when item.InstallDate is { } i => "Монтаж " + Kyiv.Format(i, "dd.MM HH:mm"),
+        _ => null,
+    };
+}

@@ -1,0 +1,237 @@
+@inject OrderService OrderService
+@inject TimeProvider Time
+@inject ILogger<OrderMoneyPanel> Log
+
+<section class="panel">
+    <h2>Гроші</h2>
+    <Alerts Error="@Error" />
+
+    <div class="tiles">
+        <div class="tile"><span class="tile-label">Договір</span><span class="tile-value">@Kyiv.Money(Money.Contract)</span></div>
+        <div class="tile"><span class="tile-label">Отримано</span><span class="tile-value">@Kyiv.Money(Money.Received)</span></div>
+        <div class="tile @(Money.BalanceDue > 0 ? "tile-warn" : null)">
+            <span class="tile-label">@(Money.BalanceDue < 0 ? "Переплата" : "Залишок до оплати")</span>
+            <span class="tile-value">@Kyiv.Money(Math.Abs(Money.BalanceDue))</span>
+        </div>
+        <div class="tile"><span class="tile-label">Витрати</span><span class="tile-value">@Kyiv.Money(Money.Expenses)</span></div>
+        <div class="tile"><span class="tile-label">Частки</span><span class="tile-value">@Kyiv.Money(Money.SharesTotal)</span></div>
+        <div class="tile tile-accent"><span class="tile-label">Прибуток</span><span class="tile-value">@Kyiv.Money(Money.Profit)</span></div>
+    </div>
+    <p class="muted small">Прибуток = отримано − витрати − частки. Матеріал для часток: @Kyiv.Money(Money.Materials).</p>
+
+    @* ---------- Оплати ---------- *@
+    <h3>Оплати від клієнта</h3>
+    @if (Order.Payments.Count > 0)
+    {
+        <ul class="mlist">
+            @foreach (var p in Order.Payments.OrderBy(p => p.PaidOn))
+            {
+                <li>
+                    <span class="mono small">@Kyiv.Format(p.PaidOn)</span>
+                    <span>@Catalog.Label(Catalog.PaymentKinds, p.Kind) · @Catalog.Label(Catalog.PaymentMethods, p.Method)@(p.Note is null ? "" : " · " + p.Note)</span>
+                    <span class="mono @(p.Kind == "refund" ? "neg" : null)">@(p.Kind == "refund" ? "−" : "")@Kyiv.Money(p.Amount)</span>
+                    <button type="button" class="icon-btn" title="Видалити" @onclick="() => DeletePayment(p)">×</button>
+                </li>
+            }
+        </ul>
+    }
+    <div class="inline-form">
+        <select @bind="Pay.Kind" aria-label="Вид оплати">
+            @foreach (var (key, label) in Catalog.PaymentKinds)
+            {
+                <option value="@key">@label</option>
+            }
+        </select>
+        <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="Сума" @bind="Pay.Amount" aria-label="Сума" />
+        <input type="date" @bind="Pay.Date" aria-label="Дата" />
+        <select @bind="Pay.Method" aria-label="Спосіб">
+            @foreach (var (key, label) in Catalog.PaymentMethods)
+            {
+                <option value="@key">@label</option>
+            }
+        </select>
+        <input type="text" placeholder="Примітка" @bind="Pay.Note" maxlength="500" aria-label="Примітка" />
+        <button type="button" class="btn btn-primary btn-sm" @onclick="AddPayment">Додати оплату</button>
+    </div>
+
+    @* ---------- Витрати ---------- *@
+    <h3>Витрати</h3>
+    @if (Order.Expenses.Count > 0)
+    {
+        <ul class="mlist">
+            @foreach (var x in Order.Expenses.OrderBy(x => x.SpentOn))
+            {
+                <li>
+                    <span class="mono small">@Kyiv.Format(x.SpentOn)</span>
+                    <span>@Catalog.Label(Catalog.ExpenseCategories, x.Category)@(x.Note is null ? "" : " · " + x.Note)</span>
+                    <span class="mono">@Kyiv.Money(x.Amount)</span>
+                    <button type="button" class="icon-btn" title="Видалити" @onclick="() => DeleteExpense(x)">×</button>
+                </li>
+            }
+        </ul>
+    }
+    <div class="inline-form">
+        <select @bind="Exp.Kind" aria-label="Категорія">
+            @foreach (var (key, label) in Catalog.ExpenseCategories)
+            {
+                <option value="@key">@label</option>
+            }
+        </select>
+        <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="Сума" @bind="Exp.Amount" aria-label="Сума" />
+        <input type="date" @bind="Exp.Date" aria-label="Дата" />
+        <input type="text" placeholder="Примітка" @bind="Exp.Note" maxlength="500" aria-label="Примітка" />
+        <button type="button" class="btn btn-primary btn-sm" @onclick="AddExpense">Додати витрату</button>
+    </div>
+
+    @* ---------- Частки ---------- *@
+    <div class="panel-head">
+        <h3>Частки учасників</h3>
+        <button type="button" class="crm-link-btn" @onclick="ApplyTemplate" title="Замінити невиплачені частки на шаблон з налаштувань">Застосувати шаблон</button>
+    </div>
+    @if (Money.Shares.Count == 0)
+    {
+        <p class="muted small">Часток немає. Задайте шаблон у налаштуваннях або додайте вручну.</p>
+    }
+    else
+    {
+        <ul class="shares">
+            @foreach (var s in Money.Shares)
+            {
+                var entity = Order.Shares.First(x => x.Id == s.ShareId);
+                <li class="share @(s.IsPaid ? "paid" : null)">
+                    <strong class="share-name">@entity.User.DisplayName</strong>
+                    @if (s.IsPaid)
+                    {
+                        <span class="muted small">@Catalog.Label(Catalog.ShareBases, s.Basis) · @FormatValue(s.Basis, s.Value)</span>
+                    }
+                    else
+                    {
+                        <span class="share-edit">
+                            <select value="@s.Basis" @onchange="e => UpdateShare(s, (string)e.Value!, s.Value)" aria-label="Як рахувати">
+                                @foreach (var (key, label) in Catalog.ShareBases)
+                                {
+                                    <option value="@key">@label</option>
+                                }
+                            </select>
+                            <input type="number" inputmode="decimal" step="0.01" min="0" value="@s.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                                   @onchange="e => UpdateShare(s, s.Basis, ParseDecimal(e.Value))" aria-label="Значення" />
+                        </span>
+                    }
+                    <span class="mono share-amount">@Kyiv.Money(s.IsPaid ? s.Paid : s.Amount)</span>
+                    <span class="share-actions">
+                        @if (s.IsPaid)
+                        {
+                            <span class="paid-mark small">✓ виплачено @Kyiv.Format(entity.PaidOn)</span>
+                            <button type="button" class="crm-link-btn small" @onclick="() => Unpay(s)">скасувати</button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => MarkPaid(s)">Виплачено</button>
+                            <button type="button" class="icon-btn" title="Видалити частку" @onclick="() => DeleteShare(s)">×</button>
+                        }
+                    </span>
+                </li>
+            }
+        </ul>
+    }
+    <div class="inline-form">
+        <select @bind="NewShareUserId" aria-label="Учасник">
+            <option value="0">Учасник…</option>
+            @foreach (var u in Users)
+            {
+                <option value="@u.Id">@u.DisplayName</option>
+            }
+        </select>
+        <select @bind="NewShareBasis" aria-label="Як рахувати">
+            @foreach (var (key, label) in Catalog.ShareBases)
+            {
+                <option value="@key">@label</option>
+            }
+        </select>
+        <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="% або сума" @bind="NewShareValue" aria-label="Значення" />
+        <button type="button" class="btn btn-ghost btn-sm" @onclick="AddShare">Додати частку</button>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public Order Order { get; set; } = null!;
+    [Parameter, EditorRequired] public OrderMoney Money { get; set; } = null!;
+    [Parameter, EditorRequired] public List<User> Users { get; set; } = [];
+    [Parameter, EditorRequired] public CurrentUser Me { get; set; } = null!;
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private string? Error { get; set; }
+    private MoneyInput Pay { get; set; } = null!;
+    private MoneyInput Exp { get; set; } = null!;
+    private int NewShareUserId { get; set; }
+    private string NewShareBasis { get; set; } = ShareBasis.ContractPercent;
+    private decimal? NewShareValue { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Pay = NewPayment();
+        Exp = NewExpense();
+    }
+
+    private MoneyInput NewPayment() => new() { Kind = Order.Payments.Count == 0 ? "advance" : "extra", Method = "cash", Date = Kyiv.Today(Time) };
+    private MoneyInput NewExpense() => new() { Kind = "board", Date = Kyiv.Today(Time) };
+
+    private Task AddPayment() => Do(async () =>
+    {
+        await OrderService.AddPaymentAsync(Me, Order.Id, Pay);
+        Pay = new MoneyInput { Kind = "extra", Method = Pay.Method, Date = Pay.Date };
+    });
+
+    private Task DeletePayment(Payment p) => Do(() => OrderService.DeletePaymentAsync(Me, p.Id));
+
+    private Task AddExpense() => Do(async () =>
+    {
+        await OrderService.AddExpenseAsync(Me, Order.Id, Exp);
+        Exp = new MoneyInput { Kind = Exp.Kind, Date = Exp.Date };
+    });
+
+    private Task DeleteExpense(Expense x) => Do(() => OrderService.DeleteExpenseAsync(Me, x.Id));
+
+    private Task UpdateShare(ShareMoney s, string basis, decimal? value) =>
+        Do(() => OrderService.UpdateShareAsync(Me, s.ShareId, basis, value ?? 0));
+
+    private Task MarkPaid(ShareMoney s) => Do(() => OrderService.MarkSharePaidAsync(Me, s.ShareId, Kyiv.Today(Time)));
+    private Task Unpay(ShareMoney s) => Do(() => OrderService.UnmarkSharePaidAsync(Me, s.ShareId));
+    private Task DeleteShare(ShareMoney s) => Do(() => OrderService.DeleteShareAsync(Me, s.ShareId));
+    private Task ApplyTemplate() => Do(() => OrderService.ApplyShareTemplateAsync(Me, Order.Id));
+
+    private Task AddShare() => Do(async () =>
+    {
+        if (NewShareUserId == 0)
+            throw new CrmException("Оберіть учасника.");
+        await OrderService.AddShareAsync(Me, Order.Id, NewShareUserId, NewShareBasis, NewShareValue ?? 0);
+        NewShareUserId = 0;
+        NewShareValue = null;
+    });
+
+    private async Task Do(Func<Task> action)
+    {
+        Error = null;
+        try
+        {
+            await action();
+            await OnChanged.InvokeAsync();
+        }
+        catch (CrmException ex)
+        {
+            Error = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Log.LogError(ex, "Помилка в розділі грошей замовлення");
+            Error = "Щось пішло не так. Оновіть сторінку й спробуйте ще раз.";
+        }
+    }
+
+    private static decimal? ParseDecimal(object? value) =>
+        decimal.TryParse(value?.ToString()?.Replace(',', '.'), System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null;
+
+    private static string FormatValue(string basis, decimal value) =>
+        basis == ShareBasis.Fixed ? Kyiv.Money(value) : value.ToString("0.##", Kyiv.Culture) + "%";
+}

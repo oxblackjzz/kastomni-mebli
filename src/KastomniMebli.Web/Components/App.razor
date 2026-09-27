@@ -10,12 +10,30 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geologica:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Unbounded:wght@500;600&display=swap" />
     <link rel="stylesheet" href="@Assets["app.css"]" />
+    @if (IsCrm)
+    {
+        <link rel="stylesheet" href="@Assets["crm.css"]" />
+        <meta name="robots" content="noindex, nofollow" />
+        <meta name="theme-color" content="#2C5A4C" />
+    }
     <link rel="icon" href="@Assets["favicon.svg"]" type="image/svg+xml" />
     <HeadOutlet />
 </head>
 
-<body>
+<body class="@(IsCrm ? "crm" : null)">
     <Routes />
+    @if (IsCrm)
+    {
+        @* Лише в CRM: інтерактивні сторінки. Лендінг лишається легким статичним HTML. *@
+        <script src="@Assets["_framework/blazor.web.js"]"></script>
+    }
 </body>
 
 </html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private bool IsCrm => HttpContext?.Request.Path.StartsWithSegments("/crm") == true;
+}

@@ -1,0 +1,5 @@
+<span class="status status-@Status">@OrderStatuses.Label(Status)</span>
+
+@code {
+    [Parameter, EditorRequired] public string Status { get; set; } = "";
+}
