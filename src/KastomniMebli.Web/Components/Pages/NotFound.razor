@@ -1,0 +1,13 @@
+@page "/not-found"
+@inject IOptions<SiteSettings> SiteOptions
+
+<PageTitle>Сторінку не знайдено — @SiteOptions.Value.Brand</PageTitle>
+
+<section class="section">
+    <div class="container narrow">
+        <p class="sheet-label"><span class="mono">404</span> Не знайдено</p>
+        <h1>Такої сторінки немає</h1>
+        <p class="lead">Можливо, посилання застаріло.</p>
+        <p><a class="btn btn-primary" href="/">На головну</a></p>
+    </div>
+</section>

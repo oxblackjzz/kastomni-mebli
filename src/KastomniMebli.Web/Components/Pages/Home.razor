@@ -1,0 +1,22 @@
+@page "/"
+@inject IOptions<SiteSettings> SiteOptions
+
+<PageTitle>@Site.Brand — корпусні меблі на замовлення, @(Site.Areas.FirstOrDefault() ?? "")</PageTitle>
+<HeadContent>
+    <meta name="description" content="Шафи-купе, гардеробні, кухні, передпокої під ваш розмір. Заміряємо, креслимо до міліметра, виготовляємо й встановлюємо. @Site.AreasText." />
+</HeadContent>
+
+<Hero />
+<Services />
+<Process />
+<DrawingFirst />
+<Team />
+<Faq />
+<LeadFormSection Result="@Result" />
+
+@code {
+    [SupplyParameterFromQuery(Name = "zayavka")]
+    private string? Result { get; set; }
+
+    private SiteSettings Site => SiteOptions.Value;
+}

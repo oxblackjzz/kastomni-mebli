@@ -1,0 +1,105 @@
+@* Фасад шафи-купе 2400 × 2600. Масштаб малюнка: 1 одиниця = 10 мм. *@
+<svg class="drawing" viewBox="0 0 400 330" role="img"
+     aria-labelledby="wardrobe-title wardrobe-desc">
+    <title id="wardrobe-title">Креслення фасаду шафи-купе</title>
+    <desc id="wardrobe-desc">Шафа шириною 2400 і висотою 2600 мм: антресоль 450 мм, три двері по 800 мм, середні — дзеркальні, цоколь 60 мм.</desc>
+    <defs>
+        <marker id="w-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7"
+                markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+            <path class="d-arrow" d="M0,2 L10,5 L0,8 z" />
+        </marker>
+    </defs>
+
+    <!-- Виносні лінії -->
+    <g class="d-ext">
+        <line x1="50" y1="42" x2="50" y2="12" />
+        <line x1="290" y1="42" x2="290" y2="12" />
+        <line x1="130" y1="42" x2="130" y2="27" />
+        <line x1="210" y1="42" x2="210" y2="27" />
+        <line x1="47" y1="45" x2="10" y2="45" />
+        <line x1="47" y1="305" x2="10" y2="305" />
+        <line x1="47" y1="90" x2="26" y2="90" />
+        <line x1="47" y1="299" x2="26" y2="299" />
+    </g>
+
+    <!-- Розмірні лінії -->
+    <g class="d-dim">
+        <line x1="50" y1="16" x2="290" y2="16" marker-start="url(#w-arrow)" marker-end="url(#w-arrow)" />
+        <line x1="50" y1="31" x2="130" y2="31" marker-start="url(#w-arrow)" marker-end="url(#w-arrow)" />
+        <line x1="130" y1="31" x2="210" y2="31" marker-start="url(#w-arrow)" marker-end="url(#w-arrow)" />
+        <line x1="210" y1="31" x2="290" y2="31" marker-start="url(#w-arrow)" marker-end="url(#w-arrow)" />
+        <line x1="14" y1="45" x2="14" y2="305" marker-start="url(#w-arrow)" marker-end="url(#w-arrow)" />
+        <line x1="30" y1="45" x2="30" y2="90" marker-start="url(#w-arrow)" marker-end="url(#w-arrow)" />
+        <line x1="30" y1="90" x2="30" y2="299" marker-start="url(#w-arrow)" marker-end="url(#w-arrow)" />
+    </g>
+    <g class="d-txt">
+        <text x="170" y="12" text-anchor="middle">2400</text>
+        <text x="90" y="27" text-anchor="middle">800</text>
+        <text x="170" y="27" text-anchor="middle">800</text>
+        <text x="250" y="27" text-anchor="middle">800</text>
+        <text x="10" y="175" text-anchor="middle" transform="rotate(-90 10 175)">2600</text>
+        <text x="26" y="68" text-anchor="middle" transform="rotate(-90 26 68)">450</text>
+        <text x="26" y="195" text-anchor="middle" transform="rotate(-90 26 195)">2090</text>
+    </g>
+
+    <!-- Корпус -->
+    <rect class="d-body" x="50" y="45" width="240" height="260" />
+
+    <!-- Антресоль: три дверцята -->
+    <rect class="d-ldsp" x="51.8" y="46.8" width="77.2" height="42.2" />
+    <rect class="d-ldsp" x="131" y="46.8" width="78" height="42.2" />
+    <rect class="d-ldsp" x="211" y="46.8" width="77.2" height="42.2" />
+    <g class="d-line">
+        <line x1="50" y1="90" x2="290" y2="90" />
+        <line x1="130" y1="45" x2="130" y2="90" />
+        <line x1="210" y1="45" x2="210" y2="90" />
+    </g>
+    <g class="d-handle">
+        <line x1="120" y1="80" x2="124" y2="80" />
+        <line x1="216" y1="80" x2="220" y2="80" />
+        <line x1="276" y1="80" x2="280" y2="80" />
+    </g>
+
+    <!-- Двері купе -->
+    <rect class="d-ldsp" x="51.8" y="91.5" width="77.2" height="206" />
+    <rect class="d-mirror" x="131" y="91.5" width="78" height="206" />
+    <rect class="d-ldsp" x="211" y="91.5" width="77.2" height="206" />
+    <g class="d-line">
+        <line x1="130" y1="90" x2="130" y2="299" />
+        <line x1="210" y1="90" x2="210" y2="299" />
+        <line x1="50" y1="299" x2="290" y2="299" />
+    </g>
+    <!-- Профіль дверей -->
+    <g class="d-thin">
+        <line x1="54" y1="91.5" x2="54" y2="297.5" />
+        <line x1="127" y1="91.5" x2="127" y2="297.5" />
+        <line x1="133" y1="91.5" x2="133" y2="297.5" />
+        <line x1="207" y1="91.5" x2="207" y2="297.5" />
+        <line x1="213" y1="91.5" x2="213" y2="297.5" />
+        <line x1="286" y1="91.5" x2="286" y2="297.5" />
+    </g>
+    <!-- Позначка дзеркала -->
+    <g class="d-thin">
+        <line x1="145" y1="150" x2="175" y2="120" />
+        <line x1="152" y1="160" x2="190" y2="122" />
+        <line x1="160" y1="240" x2="195" y2="205" />
+    </g>
+
+    <!-- Цоколь -->
+    <rect class="d-plinth" x="50" y="299" width="240" height="6" />
+
+    <!-- Винески -->
+    <g class="d-leader">
+        <circle cx="265" cy="160" r="1.4" />
+        <polyline points="265,160 304,128 396,128" />
+        <circle cx="185" cy="250" r="1.4" />
+        <polyline points="185,250 304,212 396,212" />
+        <circle cx="275" cy="302" r="1.4" />
+        <polyline points="275,302 304,284 396,284" />
+    </g>
+    <g class="d-txt d-callout">
+        <text x="306" y="124">ЛДСП 18 мм</text>
+        <text x="306" y="208">Дзеркало 4 мм</text>
+        <text x="306" y="280">Цоколь 60</text>
+    </g>
+</svg>

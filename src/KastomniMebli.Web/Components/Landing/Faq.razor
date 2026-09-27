@@ -1,0 +1,20 @@
+@inject IOptions<SiteSettings> SiteOptions
+
+@if (SiteOptions.Value.Faq.Count > 0)
+{
+    <section class="section" id="pytannia">
+        <div class="container narrow">
+            <p class="sheet-label"><span class="mono">06</span> Часті питання</p>
+            <h2>Що зазвичай питають</h2>
+            <div class="faq">
+                @foreach (var item in SiteOptions.Value.Faq)
+                {
+                    <details class="faq-item">
+                        <summary>@item.Question</summary>
+                        <p>@item.Answer</p>
+                    </details>
+                }
+            </div>
+        </div>
+    </section>
+}

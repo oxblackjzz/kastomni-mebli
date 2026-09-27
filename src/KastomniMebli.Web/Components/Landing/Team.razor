@@ -1,0 +1,25 @@
+@inject IOptions<SiteSettings> SiteOptions
+
+@if (SiteOptions.Value.Team.Count > 0)
+{
+    <section class="section section-alt" id="komanda">
+        <div class="container">
+            <p class="sheet-label"><span class="mono">05</span> Команда</p>
+            <h2>Троє людей — і жодного субпідряду</h2>
+            <ul class="card-grid card-grid-3">
+                @foreach (var (member, i) in SiteOptions.Value.Team.Select((m, i) => (m, i)))
+                {
+                    <li class="card">
+                        <span class="card-code mono">@((i + 1).ToString("00"))</span>
+                        <h3>@member.Role</h3>
+                        @if (!string.IsNullOrWhiteSpace(member.Name))
+                        {
+                            <p class="card-name">@member.Name</p>
+                        }
+                        <p>@member.Description</p>
+                    </li>
+                }
+            </ul>
+        </div>
+    </section>
+}

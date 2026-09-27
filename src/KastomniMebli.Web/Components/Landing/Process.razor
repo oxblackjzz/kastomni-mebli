@@ -1,0 +1,33 @@
+<section class="section section-alt" id="yak-pratsyuiemo">
+    <div class="container">
+        <p class="sheet-label"><span class="mono">03</span> Як працюємо</p>
+        <h2>П'ять кроків, у кожного — свій відповідальний</h2>
+        <ol class="steps">
+            @foreach (var (title, who, text) in Steps)
+            {
+                <li class="step">
+                    <div class="step-head">
+                        <h3>@title</h3>
+                        <span class="step-who mono">@who</span>
+                    </div>
+                    <p>@text</p>
+                </li>
+            }
+        </ol>
+        <p class="callout">
+            <span class="callout-mark mono">!</span>
+            Плиту ріжемо лише після того, як ви погодили креслення.
+        </p>
+    </div>
+</section>
+
+@code {
+    private static readonly (string Title, string Who, string Text)[] Steps =
+    [
+        ("Заявка", "клієнт", "Залишаєте заявку на сайті — ми телефонуємо й домовляємось про замір."),
+        ("Замір", "замірник", "Приїжджаємо, заміряємо приміщення, фіксуємо комунікації й побажання."),
+        ("Креслення й погодження", "конструктор", "Креслимо до міліметра й узгоджуємо з вами кожен модуль."),
+        ("Виготовлення", "команда", "Після погодження готуємо деталі й фурнітуру."),
+        ("Доставка й монтаж", "монтажник", "Привозимо, збираємо, регулюємо двері та фасади."),
+    ];
+}

@@ -1,0 +1,31 @@
+@page "/Error"
+@using System.Diagnostics
+@inject IOptions<SiteSettings> SiteOptions
+
+<PageTitle>Помилка — @SiteOptions.Value.Brand</PageTitle>
+
+<section class="section">
+    <div class="container narrow">
+        <p class="sheet-label"><span class="mono">500</span> Помилка</p>
+        <h1>Щось пішло не так</h1>
+        <p class="lead">Спробуйте оновити сторінку трохи згодом.</p>
+        @if (SiteOptions.Value.PhoneHref is { } tel)
+        {
+            <p>Або зателефонуйте нам: <a class="mono" href="@tel">@SiteOptions.Value.Phone</a></p>
+        }
+        @if (!string.IsNullOrEmpty(RequestId))
+        {
+            <p class="muted mono small">Код запиту: @RequestId</p>
+        }
+    </div>
+</section>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

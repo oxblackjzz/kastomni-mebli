@@ -1,0 +1,112 @@
+@* Розгортка кухні 3000 мм: модулі 600 / 800 / 600 / 450 / 550. Масштаб: 1 одиниця = 10 мм. *@
+<svg class="drawing" viewBox="0 20 380 285" role="img"
+     aria-labelledby="kitchen-title kitchen-desc">
+    <title id="kitchen-title">Розгортка кухні</title>
+    <desc id="kitchen-desc">Кухня довжиною 3000 мм з нижніх модулів 600, 800, 600, 450 і 550 мм: посудомийна машина, мийка, духовка з витяжкою над нею. Висота стільниці 850 мм, верхні шафи 720 мм.</desc>
+    <defs>
+        <marker id="k-arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7"
+                markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+            <path class="d-arrow" d="M0,2 L10,5 L0,8 z" />
+        </marker>
+    </defs>
+
+    <!-- Підлога -->
+    <line class="d-floor" x1="40" y1="260" x2="360" y2="260" />
+
+    <!-- Виносні лінії -->
+    <g class="d-ext">
+        <line x1="47" y1="260" x2="12" y2="260" />
+        <line x1="47" y1="175" x2="12" y2="175" />
+        <line x1="47" y1="110" x2="12" y2="110" />
+        <line x1="47" y1="38" x2="12" y2="38" />
+        <line x1="50" y1="263" x2="50" y2="294" />
+        <line x1="110" y1="263" x2="110" y2="280" />
+        <line x1="190" y1="263" x2="190" y2="280" />
+        <line x1="250" y1="263" x2="250" y2="280" />
+        <line x1="295" y1="263" x2="295" y2="280" />
+        <line x1="350" y1="263" x2="350" y2="294" />
+    </g>
+
+    <!-- Розмірні лінії -->
+    <g class="d-dim">
+        <line x1="18" y1="175" x2="18" y2="260" marker-start="url(#k-arrow)" marker-end="url(#k-arrow)" />
+        <line x1="18" y1="38" x2="18" y2="110" marker-start="url(#k-arrow)" marker-end="url(#k-arrow)" />
+        <line x1="50" y1="276" x2="110" y2="276" marker-start="url(#k-arrow)" marker-end="url(#k-arrow)" />
+        <line x1="110" y1="276" x2="190" y2="276" marker-start="url(#k-arrow)" marker-end="url(#k-arrow)" />
+        <line x1="190" y1="276" x2="250" y2="276" marker-start="url(#k-arrow)" marker-end="url(#k-arrow)" />
+        <line x1="250" y1="276" x2="295" y2="276" marker-start="url(#k-arrow)" marker-end="url(#k-arrow)" />
+        <line x1="295" y1="276" x2="350" y2="276" marker-start="url(#k-arrow)" marker-end="url(#k-arrow)" />
+        <line x1="50" y1="290" x2="350" y2="290" marker-start="url(#k-arrow)" marker-end="url(#k-arrow)" />
+    </g>
+    <g class="d-txt">
+        <text x="14" y="217" text-anchor="middle" transform="rotate(-90 14 217)">850</text>
+        <text x="14" y="74" text-anchor="middle" transform="rotate(-90 14 74)">720</text>
+        <text x="80" y="272" text-anchor="middle">600</text>
+        <text x="150" y="272" text-anchor="middle">800</text>
+        <text x="220" y="272" text-anchor="middle">600</text>
+        <text x="272.5" y="272" text-anchor="middle">450</text>
+        <text x="322.5" y="272" text-anchor="middle">550</text>
+        <text x="200" y="300" text-anchor="middle">3000</text>
+    </g>
+
+    <!-- Верхні шафи -->
+    <rect class="d-ldsp" x="50" y="38" width="60" height="72" />
+    <rect class="d-ldsp" x="110" y="38" width="80" height="72" />
+    <rect class="d-ldsp" x="250" y="38" width="45" height="72" />
+    <rect class="d-ldsp" x="295" y="38" width="55" height="72" />
+    <g class="d-line">
+        <line x1="150" y1="38" x2="150" y2="110" />
+    </g>
+    <g class="d-handle">
+        <line x1="104" y1="102" x2="104" y2="96" />
+        <line x1="146" y1="102" x2="146" y2="96" />
+        <line x1="154" y1="102" x2="154" y2="96" />
+        <line x1="256" y1="102" x2="256" y2="96" />
+        <line x1="344" y1="102" x2="344" y2="96" />
+    </g>
+
+    <!-- Витяжка -->
+    <rect class="d-body" x="211" y="38" width="18" height="48" />
+    <polygon class="d-body" points="194,110 246,110 238,86 202,86" />
+    <text class="d-label" x="220" y="104" text-anchor="middle">витяжка</text>
+
+    <!-- Стільниця -->
+    <rect class="d-top" x="48" y="175" width="304" height="4" />
+
+    <!-- Нижні модулі -->
+    <rect class="d-ldsp" x="50" y="179" width="60" height="71" />
+    <rect class="d-ldsp" x="110" y="179" width="80" height="71" />
+    <rect class="d-ldsp" x="190" y="179" width="60" height="71" />
+    <rect class="d-ldsp" x="250" y="179" width="45" height="71" />
+    <rect class="d-ldsp" x="295" y="179" width="55" height="71" />
+    <rect class="d-plinth" x="50" y="250" width="300" height="10" />
+    <g class="d-line">
+        <line x1="150" y1="179" x2="150" y2="250" />
+        <line x1="250" y1="202" x2="295" y2="202" />
+        <line x1="250" y1="226" x2="295" y2="226" />
+        <line x1="190" y1="186" x2="250" y2="186" />
+    </g>
+    <g class="d-handle">
+        <line x1="75" y1="184" x2="85" y2="184" />
+        <line x1="146" y1="186" x2="146" y2="194" />
+        <line x1="154" y1="186" x2="154" y2="194" />
+        <line x1="267" y1="190" x2="278" y2="190" />
+        <line x1="267" y1="214" x2="278" y2="214" />
+        <line x1="267" y1="238" x2="278" y2="238" />
+        <line x1="301" y1="186" x2="301" y2="196" />
+    </g>
+
+    <!-- Духовка: скло -->
+    <rect class="d-mirror" x="196" y="194" width="48" height="36" />
+    <!-- Варильна поверхня -->
+    <rect class="d-body" x="198" y="172" width="44" height="3" />
+    <!-- Мийка й змішувач -->
+    <path class="d-body" d="M128,175 v-3 h44 v3" />
+    <path class="d-line" d="M150,172 v-12 h8 v3" />
+
+    <g class="d-label">
+        <text x="80" y="220" text-anchor="middle">ПММ</text>
+        <text x="130" y="220" text-anchor="middle">мийка</text>
+        <text x="220" y="243" text-anchor="middle">духовка</text>
+    </g>
+</svg>

@@ -1,0 +1,110 @@
+@inject IOptions<SiteSettings> SiteOptions
+@inject FormTiming Timing
+
+<section class="section section-form" id="zayavka">
+    <div class="container form-layout">
+        <div class="form-intro">
+            <p class="sheet-label"><span class="mono">07</span> Заявка</p>
+            <h2>Замовити замір</h2>
+            <p>Залиште ім'я й телефон — ми зателефонуємо й домовимось про час заміру. Решта полів необов'язкові, але допоможуть підготуватися.</p>
+            @if (Site.PhoneHref is { } tel)
+            {
+                <p>Або телефонуйте: <a class="mono" href="@tel">@Site.Phone</a></p>
+            }
+        </div>
+
+        <div class="sheet form-sheet">
+            @if (Result == "ok")
+            {
+                <div class="form-status form-status-ok" role="status">@LeadEndpoints.SuccessMessage("")</div>
+            }
+            else
+            {
+                @if (ResultMessage is { } message)
+                {
+                    <div class="form-status form-status-error" role="alert">@message</div>
+                }
+                <form id="lead-form" class="lead-form" method="post" action="@LeadEndpoints.Path" novalidate
+                      data-error-message="@LeadEndpoints.FailureMessage(Site)">
+                    <div class="field">
+                        <label for="lf-name">Ім'я <span class="req" aria-hidden="true">*</span></label>
+                        <input id="lf-name" name="name" type="text" autocomplete="name" required
+                               maxlength="@LeadForm.NameMax" aria-describedby="lf-name-error" />
+                        <p class="field-error" id="lf-name-error" data-error-for="name"></p>
+                    </div>
+
+                    <div class="field">
+                        <label for="lf-phone">Телефон <span class="req" aria-hidden="true">*</span></label>
+                        <input id="lf-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" required
+                               placeholder="067 123 45 67" maxlength="@LeadForm.PhoneRawMax" aria-describedby="lf-phone-error" />
+                        <p class="field-error" id="lf-phone-error" data-error-for="phone"></p>
+                    </div>
+
+                    <fieldset class="field field-wide">
+                        <legend>Що потрібно</legend>
+                        <div class="chips">
+                            @foreach (var (key, label) in FurnitureTypes.All)
+                            {
+                                <label class="chip">
+                                    <input type="checkbox" name="types" value="@key" />
+                                    <span>@label</span>
+                                </label>
+                            }
+                        </div>
+                    </fieldset>
+
+                    <div class="field">
+                        <label for="lf-location">Район / місто</label>
+                        <input id="lf-location" name="location" type="text" autocomplete="address-level2"
+                               maxlength="@LeadForm.LocationMax" placeholder="@(Site.Areas.FirstOrDefault() ?? "")" />
+                        <p class="field-error" data-error-for="location"></p>
+                    </div>
+
+                    <div class="field">
+                        <label for="lf-dimensions">Приблизні розміри</label>
+                        <input id="lf-dimensions" name="dimensions" type="text"
+                               maxlength="@LeadForm.DimensionsMax" placeholder="напр. ніша 2400 × 2600" />
+                        <p class="field-error" data-error-for="dimensions"></p>
+                    </div>
+
+                    <div class="field field-wide">
+                        <label for="lf-comment">Коментар</label>
+                        <textarea id="lf-comment" name="comment" rows="4" maxlength="@LeadForm.CommentMax"
+                                  placeholder="Що хочете, коли зручно зателефонувати, будь-які деталі"></textarea>
+                        <p class="field-error" data-error-for="comment"></p>
+                    </div>
+
+                    @* Пастка для ботів: людина цього поля не бачить *@
+                    <div class="hp" aria-hidden="true">
+                        <label for="lf-website">Не заповнюйте це поле</label>
+                        <input id="lf-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+                    </div>
+                    <input type="hidden" name="t" value="@Timing.Issue()" />
+
+                    <div class="field-wide form-actions">
+                        <button type="submit" class="btn btn-primary">Надіслати заявку</button>
+                        <p class="form-note">Телефон потрібен лише, щоб домовитись про замір.</p>
+                    </div>
+                    <div class="form-status" data-status role="status" aria-live="polite" hidden></div>
+                </form>
+            }
+        </div>
+    </div>
+</section>
+
+<script src="@Assets["js/lead-form.js"]" defer></script>
+
+@code {
+    /// <summary>Результат без-JS відправки з query-параметра ?zayavka=.</summary>
+    [Parameter] public string? Result { get; set; }
+
+    private SiteSettings Site => SiteOptions.Value;
+
+    private string? ResultMessage => Result switch
+    {
+        "invalid" => "Перевірте ім'я й телефон і надішліть ще раз.",
+        "error" => LeadEndpoints.FailureMessage(Site),
+        "limit" => LeadEndpoints.RateLimitedMessage(Site),
+        _ => null,
+    };
+}

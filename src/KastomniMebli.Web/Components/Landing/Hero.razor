@@ -1,0 +1,39 @@
+@inject IOptions<SiteSettings> SiteOptions
+
+<section class="hero">
+    <div class="container hero-grid">
+        <div class="hero-text">
+            @if (SiteOptions.Value.Areas.Count > 0)
+            {
+                <p class="sheet-label"><span class="mono">01</span> @SiteOptions.Value.AreasText</p>
+            }
+            <h1>Меблі, які стають рівно у&nbsp;вашу нішу</h1>
+            <p class="lead">
+                Заміряємо, креслимо до міліметра, виготовляємо й встановлюємо.
+                Одна команда — від першого дзвінка до останньої петлі.
+            </p>
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="#zayavka">Замовити замір</a>
+                <a class="btn btn-ghost" href="#yak-pratsyuiemo">Як ми працюємо</a>
+            </div>
+            <dl class="facts">
+                <div class="fact">
+                    <dt class="mono">1 мм</dt>
+                    <dd>точність креслення в AutoCAD</dd>
+                </div>
+                <div class="fact">
+                    <dt class="mono">3 людини</dt>
+                    <dd>від заміру до монтажу, без субпідряду</dd>
+                </div>
+                <div class="fact">
+                    <dt class="mono">2 роки</dt>
+                    <dd>працюємо однією командою</dd>
+                </div>
+            </dl>
+        </div>
+        <figure class="hero-drawing sheet">
+            <WardrobeDrawing />
+            <figcaption class="sheet-caption mono">Шафа-купе · фасад · М 1:25</figcaption>
+        </figure>
+    </div>
+</section>
