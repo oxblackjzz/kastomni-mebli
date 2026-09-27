@@ -1,0 +1,34 @@
+# Render Blueprint: сайт + база Postgres.
+# Секрети (Telegram) задаються в панелі Render, у репозиторій не потрапляють.
+services:
+  - type: web
+    name: kastomni-mebli
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    branch: master
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kastomni-mebli-db
+          property: connectionString
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: Proxy__TrustForwardedHeaders
+        value: "true"
+      # Контакти на сайті (можна змінити тут або в панелі Render без перезбірки коду)
+      - key: Site__Phone
+        sync: false
+      - key: Site__Telegram
+        sync: false
+
+databases:
+  - name: kastomni-mebli-db
+    region: frankfurt
+    plan: basic-256mb
+    databaseName: kastomni_mebli
+    user: kastomni
