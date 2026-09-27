@@ -8,6 +8,7 @@ using KastomniMebli.Web.Crm.Auth;
 using KastomniMebli.Web.Data;
 using KastomniMebli.Web.Leads;
 using KastomniMebli.Web.Notifications;
+using KastomniMebli.Web.Posting;
 using KastomniMebli.Web.Settings;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.DataProtection;
@@ -76,6 +77,29 @@ builder.Services.AddSingleton<FileStore>();
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<PortfolioService>();
 builder.Services.AddScoped<KastomniMebli.Web.B2b.B2bNotifier>();
+builder.Services.AddScoped<AdminNotifier>();
+
+// Автопостинг: кожна мережа — окремий канал; PostPublisher публікує чергу.
+builder.Services.AddScoped<PostMedia>();
+builder.Services.AddScoped<PostService>();
+builder.Services.AddHttpClient<TelegramChannel>(c =>
+    {
+        c.BaseAddress = new Uri("https://api.telegram.org/");
+        c.Timeout = TimeSpan.FromSeconds(60);
+    })
+    .RemoveAllLoggers();
+builder.Services.AddHttpClient<MetaGraph>(c =>
+    {
+        c.BaseAddress = new Uri("https://graph.facebook.com/");
+        c.Timeout = TimeSpan.FromSeconds(60);
+    })
+    .RemoveAllLoggers();
+builder.Services.AddScoped<FacebookChannel>();
+builder.Services.AddScoped<InstagramChannel>();
+builder.Services.AddScoped<IPostChannel>(sp => sp.GetRequiredService<TelegramChannel>());
+builder.Services.AddScoped<IPostChannel>(sp => sp.GetRequiredService<FacebookChannel>());
+builder.Services.AddScoped<IPostChannel>(sp => sp.GetRequiredService<InstagramChannel>());
+builder.Services.AddHostedService<PostPublisher>();
 builder.Services.AddScoped<DashboardService>();
 builder.Services.AddScoped<CrmNotifier>();
 builder.Services.AddScoped<ILeadNotifier, TelegramNotifier>();

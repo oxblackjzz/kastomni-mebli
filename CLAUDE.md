@@ -23,7 +23,15 @@
 4. Автопостинг: Telegram-канал, потім Facebook/Instagram (Meta Graph API).
 5. Онлайн-конструктор меблів — пізніше, зараз НЕ чіпати.
 
-**Поточний етап:** 2 (CRM) — реалізовано. Етап 1 працює на https://kastomni-mebli.onrender.com (репо `oxblackjzz/kastomni-mebli`, гілка `main`; стара історія — `archive/prototype-2026-01`). Відкрито від власника: Telegram-бот, телефон/Telegram для сайту, `ADMIN_*` на Render, перевірка FAQ. Далі — етап 3 (B2B), лише після плану й «ок».
+**Поточний стан (2026-09-27):** етапи 1–4 реалізовано й задеплоєно на https://kastomni-mebli.onrender.com (репо `oxblackjzz/kastomni-mebli`, гілка `main`; стара історія — `archive/prototype-2026-01`). Плюс портфоліо (`/roboty`, 6 місць на головній). Відкрито від власника: Telegram-бот і канал, Meta (Facebook/Instagram) — ключі, телефон/Telegram для сайту, ціни B2B, перевірка FAQ. **TikTok** — чекає рішення власника (див. нижче). Етап 5 не чіпати.
+
+## Портфоліо, B2B, автопостинг (етапи 3–4)
+
+- Файлове сховище — `Crm/FileStore.cs` (Render Disk). Портфоліо: `PortfolioWork/PortfolioPhoto`, фото стискаються в браузері (`RequestImageFileAsync`: 1920 + мініатюра 720), публічна видача `/roboty/foto/{id}/{t|l}` (чернетки — лише для CRM).
+- B2B: `Order.Kind = b2b`, свій цикл статусів (`OrderStatuses.B2bFlow`, фінальний — `paid`), без часток; форма `/dlya-meblyariv` → `B2b/B2bEndpoints.cs` (форма читається вручну, ліміт тіла піднято до ~65 МБ). Ціни — JSON у `settings` (`b2b_pricing`), в коді жодних цифр. Дашборд: B2B окремо (`B2bReport`), у гроші команди не входить.
+- Автопостинг: `Posting/` — `IPostChannel` на мережу (Telegram Bot API; Meta Graph **v26.0**: Facebook /feed|/photos, Instagram контейнери + карусель). `PostPublisher` (раз на 30 с) публікує `post_targets` окремо; помилка → журнал + `AdminNotifier`. Перервана перезапуском публікація → failed (щоб не задублювати). Фото постів готує `wwwroot/js/crm-posts.js` (обрізка 4:5…1.91:1, ≤1440 px) і віддаються публічно за випадковим ключем `/media/posty/{key}.jpg` (Meta забирає за URL).
+- Meta: застосунок Business у режимі Development, Standard access, токен System User «Never» — App Review не потрібен (лише власні акаунти).
+- TikTok (досліджено 2026-09-27): Direct Post без аудиту — лише приватні пости, а аудит TikTok забороняє для «утиліт публікації у власні акаунти». Реальний шлях — Upload/inbox (`video.upload`, `post_mode=MEDIA_UPLOAD`, фото лише PULL_FROM_URL з підтвердженого URL-префікса, JPEG ≤1080p, ≤5 чернеток на добу): сервер кладе чернетку, людина публікує в застосунку TikTok. Потрібні: developer-застосунок, Login Kit (OAuth, access 24 год / refresh 365 днів), сторінки Privacy/Terms, верифікація URL, app review. Не реалізовано — чекає рішення власника.
 
 ## CRM (етап 2)
 

@@ -1,0 +1,243 @@
+@page "/crm/posty/{Id:int}"
+@rendermode CrmRender.Mode
+@attribute [Authorize(Roles = Roles.MoneyViewers)]
+@inherits CrmPageBase
+@using KastomniMebli.Web.Posting
+@using Microsoft.JSInterop
+@inject PostService PostService
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>Пост — CRM</PageTitle>
+
+<a class="crm-back" href="/crm/posty">← Пости</a>
+<Alerts Error="@Error" Notice="@Notice" />
+
+@if (Post is not null)
+{
+    var editable = Post.IsDraft;
+
+    <div class="crm-head">
+        <h1>Пост #@Post.Id</h1>
+        <button type="button" class="btn btn-ghost btn-sm" @onclick="Delete">Видалити з журналу</button>
+    </div>
+
+    <section class="panel">
+        <h2>Текст</h2>
+        <textarea class="post-text" rows="8" maxlength="@PostService.TextMax" disabled="@(!editable)"
+                  @bind="Text" @bind:event="oninput" @bind:after="Recheck"
+                  placeholder="Що нового: яку шафу зробили, що було складного…"></textarea>
+        <p class="muted small mono counters">
+            @Text.Length символів ·
+            <span class="@(Text.Length > TelegramChannel.CaptionMax ? "warn" : null)">Telegram-підпис ≤ @TelegramChannel.CaptionMax</span> ·
+            <span class="@(Text.Length > InstagramChannel.CaptionMax ? "neg" : null)">Instagram ≤ @InstagramChannel.CaptionMax</span>
+        </p>
+        @if (Text.Length > TelegramChannel.CaptionMax && Post.Photos.Count > 0)
+        {
+            <p class="muted small">У Telegram текст довший за підпис — фото підуть першим повідомленням, текст — другим.</p>
+        }
+        @if (editable)
+        {
+            <button type="button" class="btn btn-ghost btn-sm" @onclick="SaveText">Зберегти текст</button>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>Фото (@Post.Photos.Count з @PostService.MaxPhotos)</h2>
+        <p class="muted small">Фото обрізаються під вимоги Instagram (від 4:5 до 1.91:1) і зменшуються до 1440 px ще на телефоні.</p>
+        @if (editable && Post.Photos.Count < PostService.MaxPhotos)
+        {
+            <label class="btn btn-primary btn-sm file-btn">
+                @(Uploading ?? "Додати фото")
+                <InputFile @ref="FileInput" OnChange="Upload" multiple accept="image/jpeg,image/png,image/webp,image/heic" disabled="@(Uploading is not null)" />
+            </label>
+        }
+        @if (Post.Photos.Count > 0)
+        {
+            <ul class="pf-photos">
+                @foreach (var (photo, i) in Post.Photos.Select((p, i) => (p, i)))
+                {
+                    <li>
+                        <img src="@(PostMedia.PublicPrefix + photo.PublicKey).jpg" alt="" loading="lazy" />
+                        @if (editable)
+                        {
+                            <div class="pf-photo-actions">
+                                <button type="button" class="icon-btn" title="Раніше" disabled="@(i == 0)" @onclick="() => Move(photo, -1)">↑</button>
+                                <button type="button" class="icon-btn" title="Пізніше" disabled="@(i == Post.Photos.Count - 1)" @onclick="() => Move(photo, 1)">↓</button>
+                                <button type="button" class="icon-btn" title="Видалити" @onclick="() => DeletePhoto(photo)">×</button>
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    @if (editable)
+    {
+        <section class="panel">
+            <h2>Куди й коли</h2>
+            <ul class="net-choose">
+                @foreach (var (key, label) in Networks.All)
+                {
+                    var problem = Problems.GetValueOrDefault(key);
+                    <li>
+                        <label class="chip">
+                            <input type="checkbox" disabled="@(problem is not null)" checked="@(problem is null && Selected.Contains(key))"
+                                   @onchange="e => Toggle(key, e)" />
+                            <span>@label</span>
+                        </label>
+                        @if (problem is not null)
+                        {
+                            <span class="muted small">@problem</span>
+                        }
+                    </li>
+                }
+            </ul>
+            <div class="inline-form">
+                <label class="crm-field">
+                    <span>Коли (порожньо — зараз)</span>
+                    <input type="datetime-local" @bind="WhenLocal" @bind:format="yyyy-MM-ddTHH:mm" />
+                </label>
+            </div>
+            <div class="form-row publish-row">
+                <button type="button" class="btn btn-primary" @onclick="Queue">@(WhenLocal is null ? "Опублікувати зараз" : "Запланувати")</button>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="panel">
+            <div class="panel-head">
+                <h2>Публікація</h2>
+                @if (Post.Targets.All(t => t.Status is PostTargetStatuses.Pending or PostTargetStatuses.Failed))
+                {
+                    <button type="button" class="crm-link-btn" @onclick="Unqueue">Зняти з черги й редагувати</button>
+                }
+            </div>
+            <p class="muted small mono">@(Post.ScheduledAt is { } at ? "Заплановано на " + Kyiv.Format(at) : "Одразу")</p>
+            <ul class="targets">
+                @foreach (var t in Post.Targets.OrderBy(t => t.Network))
+                {
+                    <li>
+                        <strong>@Networks.Label(t.Network)</strong>
+                        <span class="status @Posts.TargetClass(t.Status)">@Posts.TargetLabel(t.Status)</span>
+                        @if (t.PublishedAt is { } pub)
+                        {
+                            <span class="mono small">@Kyiv.Format(pub)</span>
+                        }
+                        @if (t.ExternalUrl is { } url)
+                        {
+                            <a href="@url" target="_blank" rel="noopener">відкрити ↗</a>
+                        }
+                        @if (t.Status == PostTargetStatuses.Failed)
+                        {
+                            <p class="neg small target-error">@t.Error</p>
+                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => Retry(t)">Повторити</button>
+                        }
+                    </li>
+                }
+            </ul>
+            <button type="button" class="crm-link-btn small" @onclick="ReloadAsync">Оновити статус</button>
+        </section>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private Post? Post { get; set; }
+    private string Text { get; set; } = "";
+    private HashSet<string> Selected { get; set; } = [];
+    private Dictionary<string, string?> Problems { get; set; } = [];
+    private DateTime? WhenLocal { get; set; }
+    private string? Uploading { get; set; }
+    private InputFile? FileInput { get; set; }
+
+    protected override async Task LoadAsync()
+    {
+        Post = await PostService.GetAsync(Me, Id);
+        Text = Post.Text;
+        if (Selected.Count == 0)
+            Selected = PostService.Channels().Where(c => c.ConfigProblem is null).Select(c => c.Network).ToHashSet();
+        Recheck();
+    }
+
+    private Task ReloadAsync() => Run(LoadAsync);
+
+    private void Recheck() => Problems = PostService.Check(Text, Post?.Photos.Count ?? 0);
+
+    private Task SaveText() => Run(() => PostService.SaveTextAsync(Me, Id, Text), "Текст збережено.");
+
+    private void Toggle(string key, ChangeEventArgs e)
+    {
+        if (e.Value is true)
+            Selected.Add(key);
+        else
+            Selected.Remove(key);
+    }
+
+    private async Task Upload(InputFileChangeEventArgs e)
+    {
+        var count = e.FileCount;
+        await Run(async () =>
+        {
+            for (var i = 0; i < count; i++)
+            {
+                Uploading = $"Фото {i + 1} з {count}…";
+                StateHasChanged();
+                IJSStreamReference jpeg;
+                try
+                {
+                    jpeg = await JS.InvokeAsync<IJSStreamReference>("kmPosts.prepare", FileInput!.Element, i);
+                }
+                catch (JSException ex)
+                {
+                    throw new CrmException(ex.Message.Split('\n')[0]);
+                }
+                await using var _ = jpeg;
+                await using var stream = await jpeg.OpenReadStreamAsync(PostService.MaxPhotoBytes);
+                await PostService.AddPhotoAsync(Me, Id, stream);
+            }
+            await LoadAsync();
+        }, $"Додано фото: {count}.");
+        Uploading = null;
+    }
+
+    private Task Move(PostPhoto photo, int direction) => Run(async () =>
+    {
+        await PostService.MovePhotoAsync(Me, photo.Id, direction);
+        await LoadAsync();
+    });
+
+    private Task DeletePhoto(PostPhoto photo) => Run(async () =>
+    {
+        await PostService.DeletePhotoAsync(Me, photo.Id);
+        await LoadAsync();
+    });
+
+    private Task Queue() => Run(async () =>
+    {
+        await PostService.SaveTextAsync(Me, Id, Text);
+        await PostService.QueueAsync(Me, Id, Selected.Where(s => Problems.GetValueOrDefault(s) is null).ToList(), WhenLocal);
+        await LoadAsync();
+    }, WhenLocal is null ? "Пост у черзі — публікація протягом хвилини." : "Пост заплановано.");
+
+    private Task Unqueue() => Run(async () =>
+    {
+        await PostService.UnqueueAsync(Me, Id);
+        await LoadAsync();
+    });
+
+    private Task Retry(PostTarget t) => Run(async () =>
+    {
+        await PostService.RetryAsync(Me, t.Id);
+        await LoadAsync();
+    }, "Повторна спроба протягом хвилини.");
+
+    private async Task Delete()
+    {
+        if (await Run(() => PostService.DeleteAsync(Me, Id)))
+            Nav.NavigateTo("/crm/posty");
+    }
+}

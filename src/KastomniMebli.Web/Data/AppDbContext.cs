@@ -21,6 +21,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
     public DbSet<PortfolioWork> PortfolioWorks => Set<PortfolioWork>();
     public DbSet<PortfolioPhoto> PortfolioPhotos => Set<PortfolioPhoto>();
+    public DbSet<Post> Posts => Set<Post>();
+    public DbSet<PostPhoto> PostPhotos => Set<PostPhoto>();
+    public DbSet<PostTarget> PostTargets => Set<PostTarget>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -170,6 +173,32 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.ThumbPath).HasMaxLength(300).IsRequired();
             e.Property(x => x.Caption).HasMaxLength(300);
             e.HasOne<PortfolioWork>().WithMany(w => w.Photos).HasForeignKey(x => x.WorkId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Post>(e =>
+        {
+            e.Property(x => x.Text).HasMaxLength(4096).IsRequired();
+            e.HasIndex(x => x.ScheduledAt);
+        });
+
+        b.Entity<PostPhoto>(e =>
+        {
+            e.Property(x => x.Path).HasMaxLength(300).IsRequired();
+            e.Property(x => x.PublicKey).HasMaxLength(64).IsRequired();
+            e.HasIndex(x => x.PublicKey).IsUnique();
+            e.HasOne<Post>().WithMany(p => p.Photos).HasForeignKey(x => x.PostId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<PostTarget>(e =>
+        {
+            e.Property(x => x.Network).HasMaxLength(16).IsRequired();
+            e.Property(x => x.Status).HasMaxLength(16).IsRequired();
+            e.Property(x => x.ExternalId).HasMaxLength(100);
+            e.Property(x => x.ExternalUrl).HasMaxLength(300);
+            e.Property(x => x.Error).HasMaxLength(1000);
+            e.HasIndex(x => new { x.PostId, x.Network }).IsUnique();
+            e.HasIndex(x => x.Status);
+            e.HasOne<Post>().WithMany(p => p.Targets).HasForeignKey(x => x.PostId).OnDelete(DeleteBehavior.Cascade);
         });
 
         ApplySnakeCase(b);

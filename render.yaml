@@ -36,6 +36,17 @@ services:
         sync: false
       - key: TELEGRAM_CHAT_ID
         sync: false
+      # Автопостинг (CRM → Пости). Порожнє — мережа просто не підключена.
+      - key: TELEGRAM_CHANNEL_ID
+        sync: false
+      - key: FB_PAGE_ID
+        sync: false
+      - key: FB_PAGE_ACCESS_TOKEN
+        sync: false
+      - key: IG_USER_ID
+        sync: false
+      - key: META_GRAPH_VERSION
+        value: v26.0
       # Контакти на сайті (можна змінити тут або в панелі Render без перезбірки коду)
       - key: Site__Phone
         sync: false

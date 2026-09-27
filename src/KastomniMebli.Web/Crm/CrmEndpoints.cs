@@ -22,6 +22,15 @@ public static class CrmEndpoints
             return Results.File(found.Path, found.File.ContentType, enableRangeProcessing: true);
         }).RequireAuthorization();
 
+        // Фото постів — публічно за випадковим ключем: Instagram і Facebook забирають їх за URL без входу.
+        app.MapGet(Posting.PostMedia.PublicPrefix + "{key:regex(^[0-9a-f]{{32}}$)}.jpg", async (string key, HttpContext http, Posting.PostService posts) =>
+        {
+            if (await posts.PublicPhotoPathAsync(key) is not { } path)
+                return Results.NotFound();
+            http.Response.Headers.CacheControl = "public, max-age=86400";
+            return Results.File(path, "image/jpeg");
+        });
+
         // Фото портфоліо для сайту: t — мініатюра, l — велике. Чернетки — лише для тих, хто в CRM.
         app.MapGet("/roboty/foto/{id:int}/{size:regex(^[tl]$)}", async (int id, string size, HttpContext http, PortfolioService portfolio) =>
         {

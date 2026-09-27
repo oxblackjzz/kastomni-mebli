@@ -639,3 +639,28 @@ body.crm {
 
 .seg-wide { display: flex; width: 100%; margin-bottom: 14px; }
 .seg-wide button { flex: 1; min-height: 40px; }
+
+/* ---------- Пости ---------- */
+
+.net-list, .net-choose, .targets { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.net-list li, .net-choose li, .targets li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+}
+.net-list li > span:first-child { min-width: 9em; }
+.post-preview {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-weight: 500;
+}
+.post-text { font-size: 1rem; line-height: 1.5; }
+.counters { margin: 6px 0 10px; }
+.status-failed { border-color: var(--danger); color: var(--danger); }
+.target-error { flex-basis: 100%; margin: 0; }
+.publish-row { margin-top: 12px; }

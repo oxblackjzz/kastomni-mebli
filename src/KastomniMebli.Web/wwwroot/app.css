@@ -666,10 +666,14 @@ p { margin: 0 0 1em; }
     margin: 28px 0 0;
     padding: 0;
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 14px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
 }
-@media (min-width: 560px) { .works-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 559px) {
+    .work-meta { padding: 10px 10px 12px; font-size: 0.9rem; }
+    .work-slot span { font-size: 0.65rem; }
+}
+@media (min-width: 560px) { .works-grid { gap: 14px; } }
 @media (min-width: 980px) { .works-grid { grid-template-columns: repeat(3, 1fr); gap: 18px; } }
 
 .work-card {

@@ -1,0 +1,117 @@
+@page "/crm/posty"
+@rendermode CrmRender.Mode
+@attribute [Authorize(Roles = Roles.MoneyViewers)]
+@inherits CrmPageBase
+@using KastomniMebli.Web.Posting
+@inject PostService PostService
+@inject NavigationManager Nav
+
+<PageTitle>Пости — CRM</PageTitle>
+
+<div class="crm-head">
+    <h1>Пости</h1>
+    <button type="button" class="btn btn-primary btn-sm" @onclick="Create">+ Новий пост</button>
+</div>
+<Alerts Error="@Error" Notice="@Notice" />
+
+<section class="panel">
+    <h2>Мережі</h2>
+    <ul class="net-list">
+        @foreach (var c in Channels)
+        {
+            <li>
+                <span>@c.Label</span>
+                @if (c.ConfigProblem is null)
+                {
+                    <span class="status status-done">підключено</span>
+                }
+                else
+                {
+                    <span class="muted small">@c.ConfigProblem</span>
+                }
+            </li>
+        }
+    </ul>
+</section>
+
+@if (Loading)
+{
+    <p class="muted">Завантаження…</p>
+}
+else if (Items.Count == 0)
+{
+    <div class="crm-empty"><p>Постів ще немає.</p></div>
+}
+else
+{
+    <ul class="pf-list">
+        @foreach (var p in Items)
+        {
+            var cover = p.Photos.FirstOrDefault();
+            <li>
+                <a class="pf-row" href="/crm/posty/@p.Id">
+                    <span class="pf-thumb">
+                        @if (cover is not null)
+                        {
+                            <img src="@(PostMedia.PublicPrefix + cover.PublicKey).jpg" alt="" loading="lazy" />
+                        }
+                    </span>
+                    <span class="pf-info">
+                        <strong class="post-preview">@(string.IsNullOrWhiteSpace(p.Text) ? "(без тексту)" : p.Text)</strong>
+                        <span class="muted small mono">@When(p)</span>
+                        <span class="pf-flags small">
+                            @if (p.IsDraft)
+                            {
+                                <span class="status">чернетка</span>
+                            }
+                            @foreach (var t in p.Targets.OrderBy(t => t.Network))
+                            {
+                                <span class="status @TargetClass(t.Status)">@Networks.Label(t.Network): @TargetLabel(t.Status)</span>
+                            }
+                        </span>
+                    </span>
+                </a>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    private List<Post> Items { get; set; } = [];
+    private IReadOnlyList<ChannelInfo> Channels { get; set; } = [];
+
+    protected override async Task LoadAsync()
+    {
+        Channels = PostService.Channels();
+        Items = await PostService.ListAsync(Me);
+    }
+
+    private async Task Create()
+    {
+        var id = 0;
+        if (await Run(async () => id = await PostService.CreateAsync(Me)))
+            Nav.NavigateTo($"/crm/posty/{id}");
+    }
+
+    private static string When(Post p) =>
+        p.Targets.Where(t => t.PublishedAt != null).Select(t => t.PublishedAt).Max() is { } published ? "опубліковано " + Kyiv.Format(published)
+        : p.IsDraft ? "створено " + Kyiv.Format(p.CreatedAt)
+        : p.ScheduledAt is { } at ? "заплановано на " + Kyiv.Format(at)
+        : "у черзі";
+
+    public static string TargetLabel(string status) => status switch
+    {
+        PostTargetStatuses.Pending => "чекає",
+        PostTargetStatuses.Publishing => "публікується",
+        PostTargetStatuses.Done => "опубліковано",
+        PostTargetStatuses.Failed => "помилка",
+        _ => status,
+    };
+
+    public static string? TargetClass(string status) => status switch
+    {
+        PostTargetStatuses.Done => "status-done",
+        PostTargetStatuses.Failed => "status-failed",
+        _ => null,
+    };
+}

@@ -23,6 +23,9 @@ public sealed class SiteFactory : WebApplicationFactory<Program>
     public FakeNotifier Notifier { get; } = new();
     public FakeTelegram Telegram { get; } = new();
     public int RateLimitPerHour { get; init; } = 1000;
+
+    /// <summary>Додаткові підміни сервісів для конкретного тесту.</summary>
+    public Action<IServiceCollection>? ExtraServices { get; init; }
     public string FilesRoot { get; } = Path.Combine(Path.GetTempPath(), "km-tests-" + Guid.NewGuid().ToString("N"));
     private readonly string _dbName = "site-" + Guid.NewGuid();
 
@@ -46,6 +49,7 @@ public sealed class SiteFactory : WebApplicationFactory<Program>
 
             services.Configure<LeadOptions>(o => o.RateLimitPerHour = RateLimitPerHour);
             services.Configure<FileStorageOptions>(o => o.Root = FilesRoot);
+            ExtraServices?.Invoke(services);
         });
     }
 
