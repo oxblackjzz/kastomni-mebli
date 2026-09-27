@@ -636,3 +636,6 @@ body.crm {
     text-decoration: none;
 }
 .crm-links a:hover { color: var(--accent); }
+
+.seg-wide { display: flex; width: 100%; margin-bottom: 14px; }
+.seg-wide button { flex: 1; min-height: 40px; }

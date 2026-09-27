@@ -14,10 +14,18 @@
                 <button type="button" class="@(Kanban ? null : "on")" @onclick="() => SetView(false)">Список</button>
                 <button type="button" class="@(Kanban ? "on" : null)" @onclick="() => SetView(true)">Канбан</button>
             </div>
-            <a class="btn btn-primary btn-sm crm-hide-mobile" href="/crm/zamovlennia/nove">+ Нове замовлення</a>
+            <a class="btn btn-primary btn-sm crm-hide-mobile" href="/crm/zamovlennia/nove@(Kind == OrderKinds.B2b ? "?vyd=b2b" : "")">+ Нове замовлення</a>
         }
     </div>
 </div>
+
+@if (Me.CanSeeMoney)
+{
+    <div class="seg seg-wide" role="group" aria-label="Вид замовлень">
+        <button type="button" class="@(Kind == OrderKinds.Retail ? "on" : null)" @onclick="() => SetKind(OrderKinds.Retail)">Меблі клієнтам</button>
+        <button type="button" class="@(Kind == OrderKinds.B2b ? "on" : null)" @onclick="() => SetKind(OrderKinds.B2b)">Креслення (B2B)</button>
+    </div>
+}
 
 <Alerts Error="@Error" Notice="@Notice" />
 
@@ -25,7 +33,7 @@
 {
     <div class="crm-filters">
         <input class="crm-search" type="search" placeholder="Пошук: ім'я, телефон, №, адреса"
-               @bind="Search" @bind:event="oninput" @bind:after="LoadAsync" />
+               @bind="Search" @bind:event="oninput" @bind:after="Reload" />
         <div class="chips-scroll">
             @foreach (var (key, label) in Filters)
             {
@@ -55,7 +63,7 @@ else if (Items.Count == 0)
 else if (Kanban)
 {
     <div class="kanban">
-        @foreach (var (status, label) in OrderStatuses.Flow)
+        @foreach (var (status, label) in OrderStatuses.FlowFor(Kind))
         {
             var column = Items.Where(i => i.Status == status).ToList();
             <section class="kanban-col">
@@ -79,10 +87,10 @@ else if (Kanban)
                                 <span class="mono small">@Kyiv.Money(sum)</span>
                             }
                         </a>
-                        @if (OrderStatuses.Next(item.Status) is { } next)
+                        @if (OrderStatuses.Next(item.Kind, item.Status) is { } next)
                         {
                             <button type="button" class="kcard-next" @onclick="() => Advance(item, next)"
-                                    title="Перевести в «@OrderStatuses.Label(next)»">→ @OrderStatuses.Label(next)</button>
+                                    title="Перевести в «@OrderStatuses.Label(item.Kind, next)»">→ @OrderStatuses.Label(item.Kind, next)</button>
                         }
                     </article>
                 }
@@ -99,7 +107,7 @@ else
                 <a class="orow-main" href="/crm/zamovlennia/@item.Id">
                     <div class="orow-top">
                         <span class="mono orow-no">@item.Number</span>
-                        <StatusBadge Status="@item.Status" />
+                        <StatusBadge Status="@item.Status" Kind="@item.Kind" />
                     </div>
                     <strong class="orow-client">@item.ClientName</strong>
                     <span class="muted small">@Types(item)@(item.Address is null ? "" : " · " + item.Address)</span>
@@ -130,43 +138,52 @@ else
     private string Filter { get; set; } = "open";
     private string? Search { get; set; }
     private bool Kanban { get; set; }
+    private string Kind { get; set; } = OrderKinds.Retail;
 
-    private static readonly (string Key, string Label)[] Filters =
-        [("open", "Відкриті"), ("all", "Усі"), .. OrderStatuses.All];
+    private (string Key, string Label)[] Filters =>
+        [("open", "Відкриті"), ("all", "Усі"), .. OrderStatuses.AllFor(Kind)];
 
     protected override async Task LoadAsync()
     {
         // Канбан показує всі відкриті, фільтри — лише для списку.
         var status = Kanban ? "open" : Filter == "all" ? null : Filter;
-        Items = await OrderService.ListAsync(Me, status, Kanban ? null : Search);
+        Items = await OrderService.ListAsync(Me, status, Kanban ? null : Search, Kind);
     }
 
-    private async Task SetFilter(string key)
+    private Task Reload() => Run(LoadAsync);
+
+    private Task SetFilter(string key)
     {
         Filter = key;
-        await Run(LoadAsync);
+        return Run(LoadAsync);
     }
 
-    private async Task Advance(OrderListItem item, string next)
+    private Task SetView(bool kanban)
     {
-        await Run(async () =>
+        Kanban = kanban;
+        return Run(LoadAsync);
+    }
+
+    private Task SetKind(string kind)
+    {
+        Kind = kind;
+        Filter = "open";
+        return Run(LoadAsync);
+    }
+
+    private Task Advance(OrderListItem item, string next) =>
+        Run(async () =>
         {
             await OrderService.ChangeStatusAsync(Me, item.Id, next);
             await LoadAsync();
-        }, $"{item.Number}: {OrderStatuses.Label(next)}");
-    }
-
-    private async Task SetView(bool kanban)
-    {
-        Kanban = kanban;
-        await Run(LoadAsync);
-    }
+        }, $"{item.Number}: {OrderStatuses.Label(item.Kind, next)}");
 
     private static string Types(OrderListItem item) =>
         item.FurnitureTypes.Count == 0 ? "—" : string.Join(", ", item.FurnitureTypes.Select(FurnitureTypes.Label));
 
     private static string? NextDate(OrderListItem item) => item.Status switch
     {
+        _ when item.Kind == OrderKinds.B2b && item.DueDate is { } due && OrderStatuses.IsOpen(item.Status) => "Термін " + Kyiv.Format(due),
         OrderStatuses.MeasureScheduled when item.MeasureDate is { } m => "Замір " + Kyiv.Format(m, "dd.MM HH:mm"),
         OrderStatuses.Installation or OrderStatuses.Production when item.InstallDate is { } i => "Монтаж " + Kyiv.Format(i, "dd.MM HH:mm"),
         _ => null,

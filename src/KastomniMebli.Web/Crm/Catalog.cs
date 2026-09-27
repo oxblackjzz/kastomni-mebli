@@ -1,3 +1,5 @@
+using KastomniMebli.Web.Data;
+
 namespace KastomniMebli.Web.Crm;
 
 /// <summary>Довідники: ключ у базі → підпис українською.</summary>
@@ -88,7 +90,13 @@ public static class OrderStatuses
     public const string Done = "done";
     public const string Cancelled = "cancelled";
 
-    /// <summary>Основний шлях замовлення, по порядку.</summary>
+    // B2B — креслення для стороннього мебляра: простіший цикл.
+    public const string InWork = "in_work";
+    public const string Review = "review";
+    public const string Delivered = "delivered";
+    public const string Paid = "paid";
+
+    /// <summary>Основний шлях замовлення меблів, по порядку.</summary>
     public static readonly IReadOnlyList<(string Key, string Label)> Flow =
     [
         (New, "Нова заявка"),
@@ -101,26 +109,54 @@ public static class OrderStatuses
         (Done, "Завершено"),
     ];
 
+    public static readonly IReadOnlyList<(string Key, string Label)> B2bFlow =
+    [
+        (New, "Нова"),
+        (InWork, "В роботі"),
+        (Review, "На погодженні"),
+        (Delivered, "Здано"),
+        (Paid, "Оплачено"),
+    ];
+
     public static readonly IReadOnlyList<(string Key, string Label)> All = [.. Flow, (Cancelled, "Скасовано")];
+
+    public static IReadOnlyList<(string Key, string Label)> FlowFor(string kind) =>
+        kind == OrderKinds.B2b ? B2bFlow : Flow;
+
+    public static IReadOnlyList<(string Key, string Label)> AllFor(string kind) =>
+        [.. FlowFor(kind), (Cancelled, "Скасовано")];
+
+    /// <summary>Кінцевий успішний статус: «Завершено» для меблів, «Оплачено» для B2B.</summary>
+    public static string FinalFor(string kind) => kind == OrderKinds.B2b ? Paid : Done;
 
     public static string Label(string key) => Catalog.Label(All, key);
 
-    public static bool IsKnown(string key) => Catalog.Has(All, key);
+    public static string Label(string kind, string key) => Catalog.Label(AllFor(kind), key);
 
-    /// <summary>Позиція в основному шляху; для «Скасовано» — -1.</summary>
-    public static int Rank(string key)
+    public static bool IsKnown(string key) => Catalog.Has(All, key) || Catalog.Has(B2bFlow, key);
+
+    public static bool IsKnown(string kind, string key) => Catalog.Has(AllFor(kind), key);
+
+    /// <summary>Позиція в основному шляху меблів; для «Скасовано» та B2B-статусів — -1.</summary>
+    public static int Rank(string key) => Rank(OrderKinds.Retail, key);
+
+    public static int Rank(string kind, string key)
     {
-        for (var i = 0; i < Flow.Count; i++)
-            if (Flow[i].Key == key)
+        var flow = FlowFor(kind);
+        for (var i = 0; i < flow.Count; i++)
+            if (flow[i].Key == key)
                 return i;
         return -1;
     }
 
-    public static string? Next(string key)
+    public static string? Next(string key) => Next(OrderKinds.Retail, key);
+
+    public static string? Next(string kind, string key)
     {
-        var rank = Rank(key);
-        return rank >= 0 && rank < Flow.Count - 1 ? Flow[rank + 1].Key : null;
+        var flow = FlowFor(kind);
+        var rank = Rank(kind, key);
+        return rank >= 0 && rank < flow.Count - 1 ? flow[rank + 1].Key : null;
     }
 
-    public static bool IsOpen(string key) => key is not (Done or Cancelled);
+    public static bool IsOpen(string key) => key is not (Done or Paid or Cancelled);
 }

@@ -25,7 +25,14 @@
             {
                 <a class="header-phone mono" href="@tel">@Site.Phone</a>
             }
-            <a class="btn btn-primary btn-sm" href="/#zayavka">Замовити замір</a>
+            @if (IsB2b)
+            {
+                <a class="btn btn-primary btn-sm" href="#zavdannia">Передати завдання</a>
+            }
+            else
+            {
+                <a class="btn btn-primary btn-sm" href="/#zayavka">Замовити замір</a>
+            }
         </div>
     </div>
 </header>
@@ -65,9 +72,9 @@
                     <span class="tb-value mono"><a href="@tg" rel="noopener">@@@Site.Telegram.TrimStart('@')</a></span>
                 </div>
             }
-            <div class="tb-cell tb-small">
-                <span class="tb-label">Аркуш</span>
-                <span class="tb-value mono">1 / 1</span>
+            <div class="tb-cell">
+                <span class="tb-label">Меблярам</span>
+                <span class="tb-value"><a href="/dlya-meblyariv">Креслення на замовлення</a></span>
             </div>
             <div class="tb-cell tb-small">
                 <span class="tb-label">Рік</span>
@@ -78,5 +85,10 @@
 </footer>
 
 @code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
     private SiteSettings Site => SiteOptions.Value;
+
+    private bool IsB2b => HttpContext?.Request.Path.StartsWithSegments("/dlya-meblyariv") == true;
 }

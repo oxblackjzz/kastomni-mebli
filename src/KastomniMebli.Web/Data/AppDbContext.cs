@@ -60,6 +60,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Name).HasMaxLength(120).IsRequired();
             e.Property(x => x.Phone).HasMaxLength(13);
             e.Property(x => x.Address).HasMaxLength(300);
+            e.Property(x => x.Telegram).HasMaxLength(40);
             e.Property(x => x.Source).HasMaxLength(32).IsRequired();
             e.Property(x => x.Note).HasMaxLength(2000);
             e.HasIndex(x => x.Phone).IsUnique();
@@ -76,6 +77,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.ContractAmount).HasPrecision(12, 2);
             e.HasIndex(x => x.Number).IsUnique();
             e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.Kind);
             e.HasIndex(x => x.LeadId).IsUnique();
             e.HasOne<Lead>().WithMany().HasForeignKey(x => x.LeadId).OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Client).WithMany(c => c.Orders).HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Restrict);

@@ -19,6 +19,7 @@
             <ul class="crm-links">
                 <li><a href="/crm/portfolio">Портфоліо — фото робіт для сайту <span>→</span></a></li>
                 <li><a href="/crm/klienty">Клієнти <span>→</span></a></li>
+                <li><a href="/dlya-meblyariv" target="_blank" rel="noopener">Сторінка для меблярів <span>↗</span></a></li>
                 <li><a href="/" target="_blank" rel="noopener">Відкрити сайт <span>↗</span></a></li>
             </ul>
         </section>
@@ -75,6 +76,33 @@
                 </select>
                 <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="% або сума" @bind="TplValue" aria-label="Значення" />
                 <button type="button" class="btn btn-primary btn-sm" @onclick="AddTemplate">Додати</button>
+            </div>
+        </section>
+
+        @* ---------- Ціни для меблярів (B2B) ---------- *@
+        <section class="panel">
+            <h2>Ціни для меблярів</h2>
+            <p class="muted small">Показуються на сторінці <a href="/dlya-meblyariv" target="_blank" rel="noopener">/dlya-meblyariv</a>. Порожнє поле — рядок не показується.</p>
+            <div class="crm-form">
+                <div class="grid3">
+                    <label class="crm-field"><span>% від вартості матеріалу</span><input type="number" step="0.1" min="0" max="100" @bind="Pricing.MaterialsPercent" /></label>
+                    <label class="crm-field"><span>Мінімальне замовлення, грн</span><input type="number" step="1" min="0" @bind="Pricing.MinimumCheck" /></label>
+                    <label class="crm-field"><span>Доплата: кухня під техніку, грн</span><input type="number" step="1" min="0" @bind="Pricing.KitchenFitSurcharge" /></label>
+                </div>
+                <fieldset class="crm-field">
+                    <legend>Фіксовані ціни за тип виробу</legend>
+                    @foreach (var p in Pricing.FixedPrices)
+                    {
+                        <div class="inline-form">
+                            <input type="text" placeholder="Напр. «Шафа-купе до 3 м»" @bind="p.Item" maxlength="120" aria-label="Виріб" />
+                            <input type="number" step="1" min="0" placeholder="грн" @bind="p.Price" aria-label="Ціна" />
+                            <button type="button" class="icon-btn" title="Прибрати" @onclick="() => Pricing.FixedPrices.Remove(p)">×</button>
+                        </div>
+                    }
+                    <div><button type="button" class="crm-link-btn" @onclick="() => Pricing.FixedPrices.Add(new())">+ додати рядок</button></div>
+                </fieldset>
+                <label class="crm-field"><span>Примітка під цінами</span><textarea rows="2" @bind="Pricing.Note" maxlength="500"></textarea></label>
+                <div class="form-row"><button type="button" class="btn btn-primary btn-sm" @onclick="SavePricing">Зберегти ціни</button></div>
             </div>
         </section>
 
@@ -175,8 +203,17 @@
             Users = await UserService.ListAsync();
             Templates = await SettingsService.ListTemplatesAsync(Me);
             Materials = (await SettingsService.GetMaterialCategoriesAsync()).ToHashSet();
+            Pricing = await SettingsService.GetB2bPricingAsync();
         }
     }
+
+    private KastomniMebli.Web.B2b.B2bPricing Pricing { get; set; } = new();
+
+    private Task SavePricing() => Run(async () =>
+    {
+        await SettingsService.SetB2bPricingAsync(Me, Pricing);
+        Pricing = await SettingsService.GetB2bPricingAsync();
+    }, "Ціни збережено.");
 
     private async Task ChangeMyPassword()
     {

@@ -26,6 +26,9 @@ public class Order
 
     public string? Comment { get; set; }
 
+    /// <summary>Бажаний термін (B2B-креслення).</summary>
+    public DateOnly? DueDate { get; set; }
+
     // Заплановані зустрічі (UTC).
     public DateTime? MeasureDate { get; set; }
     public DateTime? InstallDate { get; set; }
@@ -50,6 +53,13 @@ public class Order
 public static class OrderKinds
 {
     public const string Retail = "retail";
+    public const string B2b = "b2b";
+
+    public static readonly IReadOnlyList<(string Key, string Label)> All =
+    [
+        (Retail, "Меблі клієнту"),
+        (B2b, "Креслення для мебляра (B2B)"),
+    ];
 }
 
 /// <summary>Хто відповідає за замовлення: замірник / конструктор / монтажник.</summary>

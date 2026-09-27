@@ -638,7 +638,7 @@ p { margin: 0 0 1em; }
 .tb-strong { font-family: var(--font-head); font-weight: 500; }
 
 @media (min-width: 900px) {
-    .title-block { grid-template-columns: 1.4fr 1.6fr 1fr 1fr 0.5fr 0.5fr; }
+    .title-block { grid-template-columns: 1.3fr 1.5fr 1fr 1fr 1.3fr 0.5fr; }
     .tb-brand { grid-column: auto; }
     .tb-cell { border-bottom: 0; }
     .tb-cell:last-child { border-right: 0; }
@@ -762,3 +762,43 @@ p { margin: 0 0 1em; }
 .work-photo { margin: 0; background: var(--surface); border: 1px solid var(--line); }
 .work-photo img { display: block; width: 100%; height: auto; }
 .work-photo figcaption { padding: 8px 12px; font-size: 0.8rem; color: var(--muted); }
+
+/* ---------- Сторінка для меблярів ---------- */
+
+.plain-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; border-top: 1px solid var(--line); }
+.plain-list li { padding: 14px 0 14px 28px; border-bottom: 1px solid var(--line); position: relative; }
+.plain-list li::before { content: "—"; position: absolute; left: 0; color: var(--accent); font-family: var(--font-mono); }
+
+.price-list { margin: 24px 0 16px; border-top: 1px solid var(--line); }
+.price-list div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+}
+.price-list dt { color: var(--ink); }
+.price-list dd { margin: 0; color: var(--accent); font-weight: 500; white-space: nowrap; }
+
+.field input[type=date], .field input[type=file] {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--ink);
+    font: 400 1rem/1.4 var(--font-body);
+}
+.field input[type=file]::file-selector-button {
+    margin-right: 12px;
+    padding: 6px 12px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+}
+.header-b2b { color: var(--accent) !important; }

@@ -31,6 +31,35 @@ public sealed class SettingsService(IDbContextFactory<AppDbContext> dbs)
         await db.SaveChangesAsync();
     }
 
+    private const string B2bPricingKey = "b2b_pricing";
+
+    public async Task<B2b.B2bPricing> GetB2bPricingAsync()
+    {
+        var json = await GetAsync(B2bPricingKey);
+        if (string.IsNullOrWhiteSpace(json))
+            return new B2b.B2bPricing();
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<B2b.B2bPricing>(json) ?? new B2b.B2bPricing();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return new B2b.B2bPricing();
+        }
+    }
+
+    public async Task SetB2bPricingAsync(CurrentUser actor, B2b.B2bPricing pricing)
+    {
+        RequireMoney(actor);
+        if (pricing.MaterialsPercent is < 0 or > 100)
+            throw new CrmException("Відсоток — від 0 до 100.");
+        if (pricing.MinimumCheck < 0 || pricing.KitchenFitSurcharge < 0 || pricing.FixedPrices.Any(p => p.Price < 0))
+            throw new CrmException("Ціни не можуть бути від'ємними.");
+        pricing.FixedPrices = pricing.FixedPrices.Where(p => !string.IsNullOrWhiteSpace(p.Item)).ToList();
+        pricing.Note = string.IsNullOrWhiteSpace(pricing.Note) ? null : pricing.Note.Trim();
+        await SetAsync(B2bPricingKey, System.Text.Json.JsonSerializer.Serialize(pricing));
+    }
+
     public async Task<string?> GetAsync(string key)
     {
         await using var db = await dbs.CreateDbContextAsync();

@@ -83,7 +83,9 @@
         <button type="button" class="btn btn-primary btn-sm" @onclick="AddExpense">Додати витрату</button>
     </div>
 
-    @* ---------- Частки ---------- *@
+    @* ---------- Частки (у B2B їх немає — це робота конструктора) ---------- *@
+    @if (ShowShares)
+    {
     <div class="panel-head">
         <h3>Частки учасників</h3>
         <button type="button" class="crm-link-btn" @onclick="ApplyTemplate" title="Замінити невиплачені частки на шаблон з налаштувань">Застосувати шаблон</button>
@@ -151,6 +153,7 @@
         <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="% або сума" @bind="NewShareValue" aria-label="Значення" />
         <button type="button" class="btn btn-ghost btn-sm" @onclick="AddShare">Додати частку</button>
     </div>
+    }
 </section>
 
 @code {
@@ -159,6 +162,7 @@
     [Parameter, EditorRequired] public List<User> Users { get; set; } = [];
     [Parameter, EditorRequired] public CurrentUser Me { get; set; } = null!;
     [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public bool ShowShares { get; set; } = true;
 
     private string? Error { get; set; }
     private MoneyInput Pay { get; set; } = null!;

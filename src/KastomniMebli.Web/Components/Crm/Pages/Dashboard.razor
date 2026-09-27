@@ -129,6 +129,18 @@
     </section>
 
     <section class="panel">
+        <h2>Креслення для меблярів (B2B)</h2>
+        <p class="muted small">Окремо від грошей команди — це дохід конструктора.</p>
+        <div class="tiles">
+            <div class="tile tile-accent"><span class="tile-label">Дохід за місяць</span><span class="tile-value">@Kyiv.Money(r.B2b.IncomeInMonth)</span></div>
+            <div class="tile"><span class="tile-label">За весь час</span><span class="tile-value">@Kyiv.Money(r.B2b.IncomeAllTime)</span></div>
+            <div class="tile"><span class="tile-label">Нових у місяці</span><span class="tile-value">@r.B2b.NewInMonth</span></div>
+            <div class="tile"><span class="tile-label">В роботі зараз</span><span class="tile-value">@r.B2b.OpenNow</span></div>
+            <div class="tile @(r.B2b.Unpaid > 0 ? "tile-warn" : null)"><span class="tile-label">Не оплачено</span><span class="tile-value">@Kyiv.Money(r.B2b.Unpaid)</span></div>
+        </div>
+    </section>
+
+    <section class="panel">
         <h2>Клієнти винні</h2>
         @if (r.ClientDebts.Count == 0)
         {

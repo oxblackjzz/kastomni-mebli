@@ -18,7 +18,11 @@ else if (Order is not null)
     <div class="od-head">
         <div class="od-title">
             <span class="mono od-no">@Order.Number</span>
-            <StatusBadge Status="@Order.Status" />
+            <StatusBadge Status="@Order.Status" Kind="@Order.Kind" />
+            @if (IsB2b)
+            {
+                <span class="status">B2B</span>
+            }
         </div>
         <h1 class="od-client">@Order.Client.Name</h1>
         @if (Order.Client.Phone is { } phone)
@@ -42,14 +46,14 @@ else if (Order is not null)
             }
             else
             {
-                @if (OrderStatuses.Next(Order.Status) is { } next)
+                @if (OrderStatuses.Next(Order.Kind, Order.Status) is { } next)
                 {
-                    <button type="button" class="btn btn-primary" @onclick="() => SetStatus(next)">→ @OrderStatuses.Label(next)</button>
+                    <button type="button" class="btn btn-primary" @onclick="() => SetStatus(next)">→ @OrderStatuses.Label(Order.Kind, next)</button>
                 }
                 <label class="status-select">
                     <span class="sr-only">Змінити статус</span>
                     <select value="@Order.Status" @onchange="e => SetStatus((string)e.Value!)">
-                        @foreach (var (key, label) in OrderStatuses.All)
+                        @foreach (var (key, label) in OrderStatuses.AllFor(Order.Kind))
                         {
                             <option value="@key">@label</option>
                         }
@@ -58,10 +62,10 @@ else if (Order is not null)
             }
         </div>
         <ol class="progress" aria-label="Етапи">
-            @foreach (var (key, label) in OrderStatuses.Flow)
+            @foreach (var (key, label) in OrderStatuses.FlowFor(Order.Kind))
             {
-                var rank = OrderStatuses.Rank(key);
-                var current = OrderStatuses.Rank(Order.Status);
+                var rank = OrderStatuses.Rank(Order.Kind, key);
+                var current = OrderStatuses.Rank(Order.Kind, Order.Status);
                 <li class="@(rank < current ? "done" : rank == current ? "now" : null)" title="@label"></li>
             }
         </ol>
@@ -93,16 +97,26 @@ else if (Order is not null)
                     </div>
                 </fieldset>
                 <div class="grid2">
+                    @if (IsB2b)
+                    {
+                        <label class="crm-field">
+                            <span>Термін</span>
+                            <input type="date" @bind="Details.DueDate" />
+                        </label>
+                    }
+                    else
+                    {
+                        <label class="crm-field">
+                            <span>Замір</span>
+                            <input type="datetime-local" @bind="Details.MeasureDateLocal" @bind:format="yyyy-MM-ddTHH:mm" />
+                        </label>
+                        <label class="crm-field">
+                            <span>Монтаж</span>
+                            <input type="datetime-local" @bind="Details.InstallDateLocal" @bind:format="yyyy-MM-ddTHH:mm" />
+                        </label>
+                    }
                     <label class="crm-field">
-                        <span>Замір</span>
-                        <input type="datetime-local" @bind="Details.MeasureDateLocal" @bind:format="yyyy-MM-ddTHH:mm" />
-                    </label>
-                    <label class="crm-field">
-                        <span>Монтаж</span>
-                        <input type="datetime-local" @bind="Details.InstallDateLocal" @bind:format="yyyy-MM-ddTHH:mm" />
-                    </label>
-                    <label class="crm-field">
-                        <span>Сума договору, грн</span>
+                        <span>@(IsB2b ? "Ціна креслення, грн" : "Сума договору, грн")</span>
                         <input type="number" inputmode="decimal" step="0.01" min="0" @bind="Details.ContractAmount" />
                     </label>
                     <label class="crm-field">
@@ -134,11 +148,18 @@ else if (Order is not null)
             <dl class="facts-grid">
                 <div><dt>Що</dt><dd>@(Order.FurnitureTypes.Count == 0 ? "—" : string.Join(", ", Order.FurnitureTypes.Select(FurnitureTypes.Label)))</dd></div>
                 <div><dt>Адреса</dt><dd>@(Order.Address ?? Order.Client.Address ?? "—")</dd></div>
-                <div><dt>Замір</dt><dd class="mono">@Kyiv.Format(Order.MeasureDate)</dd></div>
-                <div><dt>Монтаж</dt><dd class="mono">@Kyiv.Format(Order.InstallDate)</dd></div>
+                @if (IsB2b)
+                {
+                    <div><dt>Термін</dt><dd class="mono">@Kyiv.Format(Order.DueDate)</dd></div>
+                }
+                else
+                {
+                    <div><dt>Замір</dt><dd class="mono">@Kyiv.Format(Order.MeasureDate)</dd></div>
+                    <div><dt>Монтаж</dt><dd class="mono">@Kyiv.Format(Order.InstallDate)</dd></div>
+                }
                 @if (Me.CanSeeMoney)
                 {
-                    <div><dt>Договір</dt><dd class="mono">@(Order.ContractAmount is { } c ? Kyiv.Money(c) : "—")</dd></div>
+                    <div><dt>@(IsB2b ? "Ціна" : "Договір")</dt><dd class="mono">@(Order.ContractAmount is { } c ? Kyiv.Money(c) : "—")</dd></div>
                     <div><dt>Джерело</dt><dd>@Catalog.Label(Catalog.Sources, Order.Source)</dd></div>
                 }
                 <div><dt>Заявка</dt><dd class="mono">@Kyiv.Format(Order.CreatedAt)</dd></div>
@@ -176,7 +197,10 @@ else if (Order is not null)
                         <label class="crm-field"><span>Ім'я</span><input type="text" @bind="ClientForm.Name" maxlength="120" /></label>
                         <label class="crm-field"><span>Телефон</span><input type="tel" inputmode="tel" @bind="ClientForm.Phone" /></label>
                     </div>
-                    <label class="crm-field"><span>Адреса</span><input type="text" @bind="ClientForm.Address" maxlength="300" /></label>
+                    <div class="grid2">
+                        <label class="crm-field"><span>Адреса</span><input type="text" @bind="ClientForm.Address" maxlength="300" /></label>
+                        <label class="crm-field"><span>Telegram</span><input type="text" @bind="ClientForm.Telegram" maxlength="40" placeholder="нік без @@" /></label>
+                    </div>
                     <label class="crm-field">
                         <span>Звідки прийшов</span>
                         <select @bind="ClientForm.Source">
@@ -200,6 +224,10 @@ else if (Order is not null)
                     <div><dt>Телефон</dt><dd class="mono">@(Order.Client.Phone is { } p ? PhoneNumber.Format(p) : "—")</dd></div>
                     <div><dt>Адреса</dt><dd>@(Order.Client.Address ?? "—")</dd></div>
                     <div><dt>Звідки</dt><dd>@Catalog.Label(Catalog.Sources, Order.Client.Source)</dd></div>
+                    @if (Order.Client.Telegram is { } ctg)
+                    {
+                        <div><dt>Telegram</dt><dd class="mono"><a href="https://t.me/@ctg" target="_blank" rel="noopener">@@@ctg</a></dd></div>
+                    }
                 </dl>
                 @if (Order.Client.Note is { } note)
                 {
@@ -209,8 +237,8 @@ else if (Order is not null)
         </section>
     }
 
-    @* ---------- Відповідальні ---------- *@
-    <section class="panel">
+    @* ---------- Відповідальні (у B2B — лише конструктор, тож не показуємо) ---------- *@
+    <section class="panel" hidden="@IsB2b">
         <h2>Відповідальні</h2>
         <div class="grid3">
             @foreach (var (role, label) in Catalog.AssigneeRoles)
@@ -239,7 +267,7 @@ else if (Order is not null)
 
     @if (Me.CanSeeMoney && Money is not null)
     {
-        <OrderMoneyPanel Order="Order" Money="Money" Users="Users" Me="Me" OnChanged="ReloadAsync" />
+        <OrderMoneyPanel Order="Order" Money="Money" Users="Users" Me="Me" OnChanged="ReloadAsync" ShowShares="!IsB2b" />
     }
 
     <OrderFilesPanel Order="Order" Me="Me" OnChanged="ReloadAsync" />
@@ -251,7 +279,7 @@ else if (Order is not null)
             {
                 <li>
                     <span class="mono small">@Kyiv.Format(h.ChangedAt)</span>
-                    <span>@OrderStatuses.Label(h.ToStatus)</span>
+                    <span>@OrderStatuses.Label(Order.Kind, h.ToStatus)</span>
                     @if (h.ChangedByUserId is { } uid)
                     {
                         <span class="muted small">@UserName(uid)</span>
@@ -266,6 +294,7 @@ else if (Order is not null)
     [Parameter] public int Id { get; set; }
 
     private Order? Order { get; set; }
+    private bool IsB2b => Order?.Kind == OrderKinds.B2b;
     private OrderMoney? Money { get; set; }
     private List<User> Users { get; set; } = [];
 
@@ -289,7 +318,7 @@ else if (Order is not null)
         {
             await OrderService.ChangeStatusAsync(Me, Id, status);
             await LoadAsync();
-        }, "Статус: " + OrderStatuses.Label(status));
+        }, "Статус: " + OrderStatuses.Label(Order?.Kind ?? OrderKinds.Retail, status));
 
     private Task SetAssignee(string role, string? userId) =>
         Run(async () =>
@@ -309,6 +338,7 @@ else if (Order is not null)
             ContractAmount = Order.ContractAmount,
             MeasureDateLocal = Order.MeasureDate is { } m ? Kyiv.ToLocal(m) : null,
             InstallDateLocal = Order.InstallDate is { } i ? Kyiv.ToLocal(i) : null,
+            DueDate = Order.DueDate,
         };
         EditingDetails = true;
     }
@@ -326,7 +356,7 @@ else if (Order is not null)
     private void StartEditClient()
     {
         var c = Order!.Client;
-        ClientForm = new ClientInput { Name = c.Name, Phone = c.Phone, Address = c.Address, Source = c.Source, Note = c.Note };
+        ClientForm = new ClientInput { Name = c.Name, Phone = c.Phone, Address = c.Address, Telegram = c.Telegram, Source = c.Source, Note = c.Note };
         EditingClient = true;
     }
 

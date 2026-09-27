@@ -17,10 +17,13 @@ public sealed record OrderListItem(
     DateTime? InstallDate,
     decimal? ContractAmount,
     string Source,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string Kind,
+    DateOnly? DueDate);
 
 public sealed class NewOrderInput
 {
+    public string Kind { get; set; } = OrderKinds.Retail;
     public string ClientName { get; set; } = "";
     public string? Phone { get; set; }
     public string? Address { get; set; }
@@ -28,6 +31,8 @@ public sealed class NewOrderInput
     public List<string> FurnitureTypes { get; set; } = [];
     public string? Comment { get; set; }
     public decimal? ContractAmount { get; set; }
+    public string? Telegram { get; set; }
+    public DateOnly? DueDate { get; set; }
 }
 
 public sealed class OrderDetailsInput
@@ -41,6 +46,7 @@ public sealed class OrderDetailsInput
     /// <summary>Київський час з поля datetime-local.</summary>
     public DateTime? MeasureDateLocal { get; set; }
     public DateTime? InstallDateLocal { get; set; }
+    public DateOnly? DueDate { get; set; }
 }
 
 public sealed class ClientInput
@@ -48,6 +54,7 @@ public sealed class ClientInput
     public string Name { get; set; } = "";
     public string? Phone { get; set; }
     public string? Address { get; set; }
+    public string? Telegram { get; set; }
     public string Source { get; set; } = "";
     public string? Note { get; set; }
 }
@@ -75,14 +82,17 @@ public sealed class OrderService(
 
     // ---------- Читання ----------
 
-    public async Task<List<OrderListItem>> ListAsync(CurrentUser actor, string? status = null, string? search = null)
+    public async Task<List<OrderListItem>> ListAsync(CurrentUser actor, string? status = null, string? search = null,
+        string kind = OrderKinds.Retail)
     {
         await using var db = await dbs.CreateDbContextAsync();
         var q = db.Orders.AsNoTracking().Include(o => o.Client).AsQueryable();
         if (actor.IsInstaller)
             q = q.Where(o => o.Assignees.Any(a => a.UserId == actor.Id));
+        else
+            q = q.Where(o => o.Kind == kind);
         if (status == "open")
-            q = q.Where(o => o.Status != OrderStatuses.Done && o.Status != OrderStatuses.Cancelled);
+            q = q.Where(o => o.Status != OrderStatuses.Done && o.Status != OrderStatuses.Paid && o.Status != OrderStatuses.Cancelled);
         else if (status is not null && OrderStatuses.IsKnown(status))
             q = q.Where(o => o.Status == status);
 
@@ -103,7 +113,7 @@ public sealed class OrderService(
         return orders.Select(o => new OrderListItem(
             o.Id, o.Number, o.Client.Name, o.Client.Phone, o.Status, o.FurnitureTypes,
             o.Address ?? o.Client.Address, o.MeasureDate, o.InstallDate,
-            actor.CanSeeMoney ? o.ContractAmount : null, o.Source, o.CreatedAt)).ToList();
+            actor.CanSeeMoney ? o.ContractAmount : null, o.Source, o.CreatedAt, o.Kind, o.DueDate)).ToList();
     }
 
     /// <summary>
@@ -175,13 +185,17 @@ public sealed class OrderService(
             errors.Add("Невірний телефон.");
         if (!Catalog.Has(Catalog.Sources, input.Source))
             errors.Add("Вкажіть, звідки клієнт.");
+        if (!Catalog.Has(OrderKinds.All, input.Kind))
+            errors.Add("Невідомий вид замовлення.");
         CheckAmount(input.ContractAmount, errors, allowZero: true);
         ThrowIfAny(errors);
 
         await using var db = await dbs.CreateDbContextAsync();
         var client = await FindOrCreateClientAsync(db, input.ClientName.Trim(), phone, Blank(input.Address), input.Source);
+        if (Blank(input.Telegram) is { } tg)
+            client.Telegram = NormalizeTelegram(tg);
         var order = await CreateCoreAsync(db, client, input.Source, input.FurnitureTypes, Blank(input.Address), Blank(input.Comment),
-            input.ContractAmount, leadId: null, actorId: actor.Id);
+            input.ContractAmount, leadId: null, actorId: actor.Id, kind: input.Kind, dueDate: input.DueDate);
         log.LogInformation("Замовлення {Number} створив {User}", order.Number, actor.Name);
         await notifier.OrderCreatedAsync(order, actor.Name);
         return order.Id;
@@ -225,6 +239,20 @@ public sealed class OrderService(
         return leads.Count;
     }
 
+    /// <summary>Заявка з форми для меблярів → клієнт-мебляр + замовлення B2B «Нова».</summary>
+    public async Task<Order> CreateB2bFromFormAsync(string name, string phone, string? telegram, IEnumerable<string> types,
+        DateOnly? dueDate, string? comment)
+    {
+        await using var db = await dbs.CreateDbContextAsync();
+        var client = await FindOrCreateClientAsync(db, name, phone, address: null, source: "furniture_maker");
+        if (telegram is not null)
+            client.Telegram = telegram;
+        return await CreateCoreAsync(db, client, "furniture_maker", types, address: null, comment, contract: null,
+            leadId: null, actorId: null, kind: OrderKinds.B2b, dueDate: dueDate);
+    }
+
+    public static string NormalizeTelegram(string value) => value.Trim().TrimStart('@');
+
     private async Task<Client> FindOrCreateClientAsync(AppDbContext db, string name, string? phone, string? address, string source)
     {
         if (phone is not null && await db.Clients.FirstOrDefaultAsync(c => c.Phone == phone) is { } found)
@@ -244,7 +272,8 @@ public sealed class OrderService(
     }
 
     private async Task<Order> CreateCoreAsync(AppDbContext db, Client client, string source, IEnumerable<string> types,
-        string? address, string? comment, decimal? contract, long? leadId, int? actorId)
+        string? address, string? comment, decimal? contract, long? leadId, int? actorId,
+        string kind = OrderKinds.Retail, DateOnly? dueDate = null)
     {
         var now = time.GetUtcNow().UtcDateTime;
         var order = new Order
@@ -252,7 +281,8 @@ public sealed class OrderService(
             Number = await NextNumberAsync(db, Kyiv.ToLocal(now).Year),
             Client = client,
             LeadId = leadId,
-            Kind = OrderKinds.Retail,
+            Kind = kind,
+            DueDate = dueDate,
             FurnitureTypes = types.Where(FurnitureTypes.IsKnown).Distinct().ToList(),
             Status = OrderStatuses.New,
             Source = source,
@@ -263,8 +293,12 @@ public sealed class OrderService(
             UpdatedAt = now,
         };
         order.StatusHistory.Add(new OrderStatusChange { ToStatus = OrderStatuses.New, ChangedByUserId = actorId, ChangedAt = now });
-        foreach (var t in await db.ShareTemplates.Where(t => t.IsActive).ToListAsync())
-            order.Shares.Add(new OrderShare { UserId = t.UserId, Basis = t.Basis, Value = t.Value });
+        // B2B — робота конструктора, без часток замірника й монтажника.
+        if (kind == OrderKinds.Retail)
+        {
+            foreach (var t in await db.ShareTemplates.Where(t => t.IsActive).ToListAsync())
+                order.Shares.Add(new OrderShare { UserId = t.UserId, Basis = t.Basis, Value = t.Value });
+        }
 
         db.Orders.Add(order);
         await db.SaveChangesAsync();
@@ -299,6 +333,7 @@ public sealed class OrderService(
         order.ContractAmount = input.ContractAmount is null ? null : OrderFinance.Round(input.ContractAmount.Value);
         order.MeasureDate = input.MeasureDateLocal is { } m ? Kyiv.ToUtc(m) : null;
         order.InstallDate = input.InstallDateLocal is { } i ? Kyiv.ToUtc(i) : null;
+        order.DueDate = input.DueDate;
         order.UpdatedAt = time.GetUtcNow().UtcDateTime;
         await db.SaveChangesAsync();
     }
@@ -324,6 +359,7 @@ public sealed class OrderService(
         client.Name = input.Name.Trim();
         client.Phone = phone;
         client.Address = Blank(input.Address);
+        client.Telegram = Blank(input.Telegram) is { } tg ? NormalizeTelegram(tg) : null;
         client.Source = input.Source;
         client.Note = Blank(input.Note);
         await db.SaveChangesAsync();
@@ -331,14 +367,13 @@ public sealed class OrderService(
 
     public async Task ChangeStatusAsync(CurrentUser actor, int id, string status)
     {
-        if (!OrderStatuses.IsKnown(status))
-            throw new CrmException("Невідомий статус.");
-
         await using var db = await dbs.CreateDbContextAsync();
         var order = await db.Orders
             .Include(o => o.Client)
             .Include(o => o.Assignees).ThenInclude(a => a.User)
             .FirstOrDefaultAsync(o => o.Id == id) ?? throw new CrmException("Замовлення не знайдено.");
+        if (!OrderStatuses.IsKnown(order.Kind, status))
+            throw new CrmException("Невідомий статус.");
 
         // Монтажник може лише закрити свій монтаж.
         if (actor.IsInstaller &&
@@ -366,12 +401,21 @@ public sealed class OrderService(
             ChangedAt = nowUtc,
         });
 
-        var rank = OrderStatuses.Rank(status);
-        if (rank >= OrderStatuses.Rank(OrderStatuses.Measured))
-            order.MeasuredAt ??= nowUtc;
-        if (rank >= OrderStatuses.Rank(OrderStatuses.Approved))
-            order.ApprovedAt ??= nowUtc;
-        order.CompletedAt = status == OrderStatuses.Done ? order.CompletedAt ?? nowUtc : null;
+        var rank = OrderStatuses.Rank(order.Kind, status);
+        if (order.Kind == OrderKinds.B2b)
+        {
+            // «В роботі» — домовились, аналог договору.
+            if (rank >= OrderStatuses.Rank(OrderKinds.B2b, OrderStatuses.InWork))
+                order.ApprovedAt ??= nowUtc;
+        }
+        else
+        {
+            if (rank >= OrderStatuses.Rank(OrderStatuses.Measured))
+                order.MeasuredAt ??= nowUtc;
+            if (rank >= OrderStatuses.Rank(OrderStatuses.Approved))
+                order.ApprovedAt ??= nowUtc;
+        }
+        order.CompletedAt = status == OrderStatuses.FinalFor(order.Kind) ? order.CompletedAt ?? nowUtc : null;
         order.CancelledAt = status == OrderStatuses.Cancelled ? nowUtc : null;
         order.Status = status;
         order.UpdatedAt = nowUtc;

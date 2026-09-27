@@ -1,0 +1,268 @@
+@page "/dlya-meblyariv"
+@using KastomniMebli.Web.B2b
+@using KastomniMebli.Web.Crm
+@inject IOptions<SiteSettings> SiteOptions
+@inject SettingsService Settings
+@inject PortfolioService Portfolio
+@inject FormTiming Timing
+@inject FileStore Store
+
+<PageTitle>Конструктор корпусних меблів для цехів — @SiteOptions.Value.Brand</PageTitle>
+<HeadContent>
+    <meta name="description" content="Креслення корпусних меблів в AutoCAD і 3D-Constructor для цехів і приватних майстрів: складальні креслення, карта розкрою, присадка, специфікація." />
+</HeadContent>
+
+<section class="hero">
+    <div class="container hero-grid">
+        <div class="hero-text">
+            <p class="sheet-label"><span class="mono">B2B</span> Для цехів і майстрів</p>
+            <h1>Креслю корпус — ви ріжете й збираєте</h1>
+            <p class="lead">
+                Конструктор корпусних меблів на аутсорсі: AutoCAD + 3D-Constructor.
+                Шафи й корпус — швидко; кухні — з вписуванням під техніку й комунікації.
+            </p>
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="#zavdannia">Передати завдання</a>
+                <a class="btn btn-ghost" href="#tsiny">Ціни</a>
+            </div>
+        </div>
+        <figure class="hero-drawing sheet">
+            <KitchenDrawing />
+            <figcaption class="sheet-caption mono">Розгортка · модулі · розміри до мм</figcaption>
+        </figure>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <p class="sheet-label"><span class="mono">01</span> Що отримуєте</p>
+        <h2>Пакет, з яким можна йти на порізку</h2>
+        <ul class="card-grid">
+            @foreach (var (tag, title, text) in Deliverables)
+            {
+                <li class="card">
+                    <span class="card-code mono">@tag</span>
+                    <h3>@title</h3>
+                    <p>@text</p>
+                </li>
+            }
+        </ul>
+    </div>
+</section>
+
+<section class="section section-alt">
+    <div class="container drawing-first">
+        <div>
+            <p class="sheet-label"><span class="mono">02</span> Для кого</p>
+            <h2>Цехи й майстри, яким бракує конструктора</h2>
+        </div>
+        <ul class="plain-list">
+            <li>Невеликий цех без свого конструктора — замовлення є, креслити нікому.</li>
+            <li>Свій конструктор є, але не встигає — пік замовлень, відпустка, складна кухня.</li>
+            <li>Приватний майстер, який збирає сам, а креслення хоче віддати.</li>
+        </ul>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <p class="sheet-label"><span class="mono">03</span> Як передати завдання</p>
+        <h2>Від замірів до файлів</h2>
+        <ol class="steps">
+            @foreach (var (title, who, text) in Steps)
+            {
+                <li class="step">
+                    <div class="step-head"><h3>@title</h3><span class="step-who mono">@who</span></div>
+                    <p>@text</p>
+                </li>
+            }
+        </ol>
+    </div>
+</section>
+
+<section class="section section-alt">
+    <div class="container">
+        <div class="section-head-row">
+            <div>
+                <p class="sheet-label"><span class="mono">04</span> Приклади</p>
+                <h2>Фрагменти креслень</h2>
+            </div>
+        </div>
+        @if (Examples.Count == 0)
+        {
+            <p class="muted">Приклади креслень з'являться тут найближчим часом.</p>
+        }
+        else
+        {
+            <ul class="works-grid">
+                @foreach (var card in Examples)
+                {
+                    <li><WorkCardView Card="card" /></li>
+                }
+            </ul>
+        }
+    </div>
+</section>
+
+<section class="section" id="tsiny">
+    <div class="container narrow">
+        <p class="sheet-label"><span class="mono">05</span> Ціни</p>
+        <h2>Скільки коштує</h2>
+        @if (Pricing.IsEmpty)
+        {
+            <p class="lead">Ціну називаю після того, як перегляну завдання.</p>
+        }
+        else
+        {
+            <dl class="price-list">
+                @if (Pricing.MaterialsPercent is { } percent)
+                {
+                    <div><dt>Від вартості матеріалу</dt><dd class="mono">@percent.ToString("0.##", Kyiv.Culture)%</dd></div>
+                }
+                @foreach (var p in Pricing.FixedPrices)
+                {
+                    <div><dt>@p.Item</dt><dd class="mono">@Kyiv.Money(p.Price)</dd></div>
+                }
+                @if (Pricing.KitchenFitSurcharge is { } fit)
+                {
+                    <div><dt>Вписування кухні під техніку й комунікації</dt><dd class="mono">+ @Kyiv.Money(fit)</dd></div>
+                }
+                @if (Pricing.MinimumCheck is { } min)
+                {
+                    <div><dt>Мінімальне замовлення</dt><dd class="mono">@Kyiv.Money(min)</dd></div>
+                }
+            </dl>
+            @if (Pricing.Note is { } note)
+            {
+                <p class="muted">@note</p>
+            }
+        }
+    </div>
+</section>
+
+<section class="section section-form" id="zavdannia">
+    <div class="container form-layout">
+        <div class="form-intro">
+            <p class="sheet-label"><span class="mono">06</span> Завдання</p>
+            <h2>Передати завдання</h2>
+            <p>Заміри, фото, ескіз — що є. Якщо файлів багато чи вони важкі — надішліть основне тут, решту в Telegram.</p>
+            @if (SiteOptions.Value.TelegramHref is { } tg)
+            {
+                <p>Telegram: <a class="mono" href="@tg" rel="noopener">@@@SiteOptions.Value.Telegram.TrimStart('@')</a></p>
+            }
+        </div>
+
+        <div class="sheet form-sheet">
+            @if (Result == "ok")
+            {
+                <div class="form-status form-status-ok" role="status">@B2bEndpoints.SuccessMessage(0)</div>
+            }
+            else
+            {
+                @if (ResultMessage is { } message)
+                {
+                    <div class="form-status form-status-error" role="alert">@message</div>
+                }
+                <form id="b2b-form" class="lead-form js-form" method="post" action="@B2bEndpoints.SubmitPath" enctype="multipart/form-data" novalidate
+                      data-error-message="@LeadEndpoints.FailureMessage(SiteOptions.Value)"
+                      data-max-file-mb="@Store.MaxSizeMb" data-max-files="@B2bForm.MaxFiles" data-max-total-mb="@(B2bForm.MaxTotalBytes / 1024 / 1024)">
+                    <div class="field">
+                        <label for="bf-name">Цех / ім'я <span class="req" aria-hidden="true">*</span></label>
+                        <input id="bf-name" name="name" type="text" autocomplete="organization" required maxlength="@B2bForm.NameMax" />
+                        <p class="field-error" data-error-for="name"></p>
+                    </div>
+                    <div class="field">
+                        <label for="bf-phone">Телефон <span class="req" aria-hidden="true">*</span></label>
+                        <input id="bf-phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" required placeholder="067 123 45 67" maxlength="40" />
+                        <p class="field-error" data-error-for="phone"></p>
+                    </div>
+                    <div class="field">
+                        <label for="bf-tg">Telegram</label>
+                        <input id="bf-tg" name="telegram" type="text" autocomplete="off" placeholder="@@nik" maxlength="60" />
+                        <p class="field-error" data-error-for="telegram"></p>
+                    </div>
+                    <div class="field">
+                        <label for="bf-due">Бажаний термін</label>
+                        <input id="bf-due" name="due" type="date" />
+                        <p class="field-error" data-error-for="due"></p>
+                    </div>
+                    <fieldset class="field field-wide">
+                        <legend>Тип виробу</legend>
+                        <div class="chips">
+                            @foreach (var (key, label) in FurnitureTypes.All)
+                            {
+                                <label class="chip"><input type="checkbox" name="types" value="@key" /><span>@label</span></label>
+                            }
+                        </div>
+                    </fieldset>
+                    <div class="field field-wide">
+                        <label for="bf-files">Файли: заміри, фото, ескіз</label>
+                        <input id="bf-files" name="files" type="file" multiple accept="@FileService.AllowedExtensions" class="file-input" />
+                        <p class="form-note">PDF, DWG, DXF, фото, ZIP · до @B2bForm.MaxFiles файлів · до @Store.MaxSizeMb МБ кожен</p>
+                        <p class="field-error" data-error-for="files"></p>
+                    </div>
+                    <div class="field field-wide">
+                        <label for="bf-comment">Коментар</label>
+                        <textarea id="bf-comment" name="comment" rows="4" maxlength="@B2bForm.CommentMax"
+                                  placeholder="Що креслимо, матеріали, фурнітура, особливості"></textarea>
+                        <p class="field-error" data-error-for="comment"></p>
+                    </div>
+
+                    <div class="hp" aria-hidden="true">
+                        <label for="bf-website">Не заповнюйте це поле</label>
+                        <input id="bf-website" name="website" type="text" tabindex="-1" autocomplete="off" />
+                    </div>
+                    <input type="hidden" name="t" value="@Timing.Issue()" />
+
+                    <div class="field-wide form-actions">
+                        <button type="submit" class="btn btn-primary">Надіслати завдання</button>
+                    </div>
+                    <div class="form-status" data-status role="status" aria-live="polite" hidden></div>
+                </form>
+            }
+        </div>
+    </div>
+</section>
+
+<script src="@Assets["js/lead-form.js"]" defer></script>
+
+@code {
+    [SupplyParameterFromQuery(Name = "zayavka")]
+    private string? Result { get; set; }
+
+    private B2bPricing Pricing { get; set; } = new();
+    private List<WorkCard> Examples { get; set; } = [];
+
+    private string? ResultMessage => Result switch
+    {
+        "invalid" => "Перевірте назву, телефон і файли й надішліть ще раз.",
+        "error" => LeadEndpoints.FailureMessage(SiteOptions.Value),
+        "limit" => LeadEndpoints.RateLimitedMessage(SiteOptions.Value),
+        _ => null,
+    };
+
+    private static readonly (string Code, string Title, string Text)[] Deliverables =
+    [
+        ("DWG", "Складальні креслення", "Загальні види, розміри, вузли — все, що потрібно на збірці."),
+        ("CUT", "Карта розкрою", "Деталі з розмірами й кромкуванням — під порізку плити."),
+        ("DRL", "Присадка", "Схеми отворів під фурнітуру для кожної деталі."),
+        ("BOM", "Специфікація", "Матеріали й фурнітура списком — щоб порахувати й закупити."),
+        ("3D", "3D-візуалізація", "За потреби — щоб показати клієнту до порізки."),
+        ("KIT", "Кухні під техніку", "Вписування модулів під духовку, мийку, ПММ, витяжку, котел і розетки."),
+    ];
+
+    private static readonly (string Title, string Who, string Text)[] Steps =
+    [
+        ("Завдання", "ви", "Надсилаєте заміри, фото ніші, ескіз або креслення клієнта — через форму чи Telegram."),
+        ("Уточнення", "конструктор", "Питаю, чого бракує, узгоджуємо матеріали й фурнітуру, називаю ціну й термін."),
+        ("Креслення", "конструктор", "Креслю й надсилаю на погодження."),
+        ("Правки", "разом", "Вносимо зміни, поки все не зійдеться."),
+        ("Файли", "конструктор", "Отримуєте фінальний пакет — і на порізку."),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        Pricing = await Settings.GetB2bPricingAsync();
+        Examples = await Portfolio.PublishedCardsAsync(forMakers: true);
+    }
+}

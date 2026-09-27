@@ -10,6 +10,9 @@ public class Client
 
     public string? Address { get; set; }
 
+    /// <summary>Telegram (без @) — у меблярів це часто основний канал зв'язку.</summary>
+    public string? Telegram { get; set; }
+
     /// <summary>Див. <see cref="Crm.Catalog.Sources"/>.</summary>
     public string Source { get; set; } = "";
 

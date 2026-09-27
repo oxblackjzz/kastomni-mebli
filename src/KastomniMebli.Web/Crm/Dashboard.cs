@@ -26,6 +26,9 @@ public sealed record SourceReport(string Source, string Label, int Leads, int Co
 
 public sealed record ClientDebt(int OrderId, string Number, string ClientName, decimal Contract, decimal Received, decimal Due);
 
+/// <summary>Креслення для меблярів — окремо: це дохід конструктора, не команди.</summary>
+public sealed record B2bReport(int NewInMonth, int OpenNow, int PaidInMonth, decimal IncomeInMonth, decimal IncomeAllTime, decimal Unpaid);
+
 public sealed record MonthReport(
     int Year,
     int Month,
@@ -34,7 +37,8 @@ public sealed record MonthReport(
     CompletedReport Completed,
     IReadOnlyList<PersonReport> People,
     IReadOnlyList<SourceReport> Sources,
-    IReadOnlyList<ClientDebt> ClientDebts);
+    IReadOnlyList<ClientDebt> ClientDebts,
+    B2bReport B2b);
 
 /// <summary>
 /// Звіт за місяць (київський час). Правила:
@@ -42,16 +46,29 @@ public sealed record MonthReport(
 /// • виручка — оплати з датою в місяці (гроші, що реально прийшли), витрати — за датою витрати;
 /// • прибуток і заробіток учасників — за замовленнями, завершеними в місяці;
 /// • «винні» учасникам — невиплачені частки всіх завершених замовлень; «нараховується» — по відкритих;
-/// • скасовані замовлення в частки й борги не входять.
+/// • скасовані замовлення в частки й борги не входять;
+/// • B2B-креслення рахуються окремо (B2bReport) і в цифри команди не входять.
 /// </summary>
 public static class DashboardCalc
 {
-    public static MonthReport Build(IReadOnlyList<Order> orders, IReadOnlyList<User> users, int year, int month,
+    public static MonthReport Build(IReadOnlyList<Order> allOrders, IReadOnlyList<User> users, int year, int month,
         IReadOnlyCollection<string> materialCategories)
     {
         bool InMonth(DateTime? utc) => utc is { } d && Kyiv.ToLocal(d) is var l && l.Year == year && l.Month == month;
         bool DayInMonth(DateOnly? d) => d is { } x && x.Year == year && x.Month == month;
 
+        var b2bOrders = allOrders.Where(o => o.Kind == OrderKinds.B2b).ToList();
+        var b2b = new B2bReport(
+            NewInMonth: b2bOrders.Count(o => InMonth(o.CreatedAt)),
+            OpenNow: b2bOrders.Count(o => OrderStatuses.IsOpen(o.Status)),
+            PaidInMonth: b2bOrders.Count(o => o.Status == OrderStatuses.Paid && InMonth(o.CompletedAt)),
+            IncomeInMonth: OrderFinance.Received(b2bOrders.SelectMany(o => o.Payments).Where(p => DayInMonth(p.PaidOn))),
+            IncomeAllTime: OrderFinance.Received(b2bOrders.SelectMany(o => o.Payments)),
+            Unpaid: b2bOrders
+                .Where(o => o.Status != OrderStatuses.Cancelled && o.ContractAmount is not null)
+                .Sum(o => Math.Max(0, o.ContractAmount!.Value - OrderFinance.Received(o.Payments))));
+
+        var orders = allOrders.Where(o => o.Kind != OrderKinds.B2b).ToList();
         var money = orders.ToDictionary(o => o.Id, o => OrderFinance.Calculate(o, materialCategories));
 
         var created = orders.Where(o => InMonth(o.CreatedAt)).ToList();
@@ -112,7 +129,7 @@ public static class DashboardCalc
             .OrderByDescending(d => d.Due)
             .ToList();
 
-        return new MonthReport(year, month, funnel, cash, completedReport, people, sources, debts);
+        return new MonthReport(year, month, funnel, cash, completedReport, people, sources, debts, b2b);
     }
 }
 
