@@ -48,7 +48,7 @@ dotnet test
 
 ## Деплой на Render
 
-Автодеплой: push у гілку `master` → Render сам збирає Docker-образ.
+Автодеплой: push у гілку `main` → Render сам збирає Docker-образ.
 
 Перший раз:
 1. Render → **New → Blueprint** → вибрати репозиторій `kastomni-mebli` → Render прочитає `render.yaml`

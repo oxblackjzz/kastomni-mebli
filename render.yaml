@@ -6,7 +6,7 @@ services:
     runtime: docker
     plan: starter
     region: frankfurt
-    branch: master
+    branch: main
     dockerfilePath: ./Dockerfile
     healthCheckPath: /healthz
     envVars:
