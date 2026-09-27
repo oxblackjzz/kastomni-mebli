@@ -36,6 +36,7 @@
 - Заявка з сайту → клієнт (пошук за телефоном) + замовлення «Нова заявка» (`OrderService.CreateFromLeadAsync`); при старті `BackfillLeadsAsync` добирає заявки без замовлень.
 - Файли — Render Disk `/var/data` (`Files__Root=/var/data/files`), у БД лише опис (`order_files`). Тому в Dockerfile немає `USER $APP_UID` (диск монтується з правами root). Видача: `GET /crm/fajly/{id}` з перевіркою доступу.
 - Telegram: `ITelegramSender` (один клієнт Bot API), `TelegramNotifier` — заявки, `CrmNotifier` — нове замовлення, «Монтаж» монтажнику, нагадування (`ReminderService`, щодня з 18:00 Києва, раз на день — ключ `reminders_last_run` у `settings`). Збій Telegram ніколи не ламає дію.
+- Dockerfile: версії .NET зафіксовані (SDK 10.0.401, aspnet 10.0.12) і збірка падає, якщо в `/app/wwwroot/_framework/` немає `blazor.web.js`. Причина: з `sdk:10.0` + окремим кешованим `restore` на Render скрипт Blazor не потрапив в образ → сторінки CRM були порожні (локально й у тестах цього не видно). Після деплою перевіряти, що `/_framework/blazor.web.*.js` віддає 200.
 - Тестова інфраструктура — `tests/.../TestInfra.cs` (`SiteFactory`, `CrmTestContext`, фейки Telegram і часу).
 
 ## Цей проєкт
