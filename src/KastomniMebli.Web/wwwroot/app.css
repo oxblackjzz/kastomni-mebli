@@ -3,6 +3,7 @@
 /* Світла тема «світлий зошит»: майже білий папір + блакитна клітинка.
    Попередня (сіріша) палітра: bg #F2F3F0, line #D3D8D5, grid rgba(44,90,76,.045). */
 :root {
+    color-scheme: light;
     --bg: #FDFDFB;
     --bg-alt: #F4F7F9;
     --surface: #FFFFFF;
@@ -27,22 +28,22 @@
     --header-h: 60px;
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #141819;
-        --bg-alt: #181D1F;
-        --surface: #1C2123;
-        --ink: #E6E9E6;
-        --muted: #9BA5A8;
-        --line: #2F373A;
-        --accent: #86BBA8;
-        --accent-ink: #141819;
-        --oak: #8A6A48;
-        --oak-light: #3A3024;
-        --mirror: #2A3538;
-        --danger: #E08A7A;
-        --grid: rgba(134, 187, 168, 0.04);
-    }
+/* Темна тема — лише якщо людина сама її ввімкнула кнопкою ☾ (типово сайт світлий). */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #141819;
+    --bg-alt: #181D1F;
+    --surface: #1C2123;
+    --ink: #E6E9E6;
+    --muted: #9BA5A8;
+    --line: #2F373A;
+    --accent: #86BBA8;
+    --accent-ink: #141819;
+    --oak: #8A6A48;
+    --oak-light: #3A3024;
+    --mirror: #2A3538;
+    --danger: #E08A7A;
+    --grid: rgba(134, 187, 168, 0.04);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -824,3 +825,20 @@ p { margin: 0 0 1em; }
 .prose h2 { font-size: 1.2rem; margin-top: 2em; }
 .prose ul { padding-left: 1.2em; }
 .prose li { margin-bottom: 0.5em; }
+
+/* Кнопка теми ☾ / ☀ */
+.theme-toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+.theme-toggle:hover { color: var(--accent); border-color: var(--accent); }

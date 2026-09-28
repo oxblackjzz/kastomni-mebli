@@ -21,6 +21,7 @@
             <a href="/#pytannia">Питання</a>
         </nav>
         <div class="header-actions">
+            <button type="button" class="theme-toggle" data-theme-toggle aria-label="Темна тема" title="Темна тема">☾</button>
             @if (Site.PhoneHref is { } tel)
             {
                 <a class="header-phone mono" href="@tel">@Site.Phone</a>

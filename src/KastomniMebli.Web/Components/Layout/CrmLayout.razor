@@ -26,6 +26,7 @@
             <NavLink href="/crm/nalashtuvannia">Налаштування</NavLink>
         </nav>
         <div class="crm-user">
+            <button type="button" class="theme-toggle" data-theme-toggle aria-label="Темна тема" title="Темна тема">☾</button>
             <span class="crm-user-name">@Me?.Name</span>
             <form method="post" action="@AuthEndpoints.LogoutPath">
                 <AntiforgeryToken />

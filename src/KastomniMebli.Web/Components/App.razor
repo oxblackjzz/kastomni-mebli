@@ -4,7 +4,9 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="light" />
+    @* Типово світла тема; темна — лише якщо людина ввімкнула її кнопкою ☾. Ставимо до малювання, щоб не блимало. *@
+    <script>try { if (localStorage.getItem('km_theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) { }</script>
     <base href="/" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -37,6 +39,7 @@
     {
         <script src="@Assets["js/attribution.js"]" defer></script>
     }
+    <script src="@Assets["js/theme.js"]"></script>
 </body>
 
 </html>

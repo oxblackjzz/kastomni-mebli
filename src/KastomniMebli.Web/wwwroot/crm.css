@@ -7,9 +7,7 @@ body.crm {
     --ok: var(--accent);
     --tabbar-h: 64px;
 }
-@media (prefers-color-scheme: dark) {
-    body.crm { --warn: #E2B26A; }
-}
+:root[data-theme="dark"] body.crm { --warn: #E2B26A; }
 
 .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
