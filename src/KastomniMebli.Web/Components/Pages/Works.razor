@@ -4,9 +4,9 @@
 @inject IOptions<SiteSettings> SiteOptions
 
 <PageTitle>Наші роботи — @SiteOptions.Value.Brand</PageTitle>
-<HeadContent>
-    <meta name="description" content="Шафи-купе, кухні, гардеробні, передпокої, які ми зробили під розмір замовників. @SiteOptions.Value.AreasText." />
-</HeadContent>
+<SeoMeta Title="Наші роботи" Path="/roboty"
+         Description="@($"Шафи-купе, кухні, гардеробні, передпокої, які ми зробили під розмір замовників. {SiteOptions.Value.AreasText}.")"
+         Image="@(Cards.FirstOrDefault()?.CoverPhotoId is { } cover ? $"/roboty/foto/{cover}/l" : "/og.png")" />
 
 <section class="section section-first">
     <div class="container">

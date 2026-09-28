@@ -8,14 +8,9 @@
 @if (Work is not null)
 {
     <PageTitle>@Work.Title — @SiteOptions.Value.Brand</PageTitle>
-    <HeadContent>
-        <meta name="description" content="@(Work.Description ?? $"{FurnitureTypes.Label(Work.Category)}: {Work.Title}")" />
-        @if (Work.Photos.FirstOrDefault() is { } cover && !string.IsNullOrEmpty(SiteOptions.Value.BaseUrl))
-        {
-            <meta property="og:image" content="@(SiteOptions.Value.BaseUrl.TrimEnd('/'))/roboty/foto/@cover.Id/l" />
-        }
-        <meta property="og:title" content="@Work.Title" />
-    </HeadContent>
+    <SeoMeta Title="@Work.Title" Path="@($"/roboty/{Work.Id}")"
+             Description="@(Work.Description ?? $"{FurnitureTypes.Label(Work.Category)}: {Work.Title}")"
+             Image="@(Work.Photos.FirstOrDefault() is { } cover ? $"/roboty/foto/{cover.Id}/l" : "/og.png")" />
 
     <section class="section section-first">
         <div class="container narrow">

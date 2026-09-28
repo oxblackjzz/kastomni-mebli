@@ -7,10 +7,7 @@
             <p class="sheet-label"><span class="mono">08</span> Заявка</p>
             <h2>Замовити замір</h2>
             <p>Залиште ім'я й телефон — ми зателефонуємо й домовимось про час заміру. Решта полів необов'язкові, але допоможуть підготуватися.</p>
-            @if (Site.PhoneHref is { } tel)
-            {
-                <p>Або телефонуйте: <a class="mono" href="@tel">@Site.Phone</a></p>
-            }
+            <ContactButtons />
         </div>
 
         <div class="sheet form-sheet">
@@ -83,7 +80,10 @@
 
                     <div class="field-wide form-actions">
                         <button type="submit" class="btn btn-primary">Надіслати заявку</button>
-                        <p class="form-note">Телефон потрібен лише, щоб домовитись про замір.</p>
+                        <p class="form-note">
+                            Телефон потрібен лише, щоб домовитись про замір. Надсилаючи форму, ви погоджуєтесь з
+                            <a href="/konfidentsiinist">обробкою персональних даних</a>.
+                        </p>
                     </div>
                     <div class="form-status" data-status role="status" aria-live="polite" hidden></div>
                 </form>

@@ -35,6 +35,14 @@ public sealed class SiteSettings
         string.IsNullOrWhiteSpace(Telegram) ? null : "https://t.me/" + Telegram.Trim().TrimStart('@');
 
     public string AreasText => string.Join(" · ", Areas);
+
+    /// <summary>Viber — на той самий номер, що й телефон.</summary>
+    public string? ViberHref =>
+        PhoneNumber.TryNormalize(Phone, out var normalized) ? "viber://chat?number=%2B" + normalized[1..] : null;
+
+    /// <summary>Абсолютна адреса сторінки (для canonical, og:url, sitemap). Без BaseUrl — null.</summary>
+    public string? AbsoluteUrl(string path) =>
+        string.IsNullOrWhiteSpace(BaseUrl) ? null : BaseUrl.TrimEnd('/') + "/" + path.TrimStart('/');
 }
 
 public sealed class TeamRole

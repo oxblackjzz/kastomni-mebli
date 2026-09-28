@@ -196,6 +196,7 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapGet("/healthz", () => Results.Text("ok"));
 app.MapLeadEndpoints();
+app.MapSeoEndpoints();
 KastomniMebli.Web.B2b.B2bEndpoints.MapB2bEndpoints(app);
 app.MapAuthEndpoints();
 app.MapCrmEndpoints();

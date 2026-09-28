@@ -806,3 +806,16 @@ p { margin: 0 0 1em; }
     cursor: pointer;
 }
 .header-b2b { color: var(--accent) !important; }
+
+/* ---------- Контакти, документи ---------- */
+
+.contact-buttons { margin-top: 20px; }
+.contact-buttons p { margin-bottom: 8px; }
+.contact-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.footer-legal { margin: 12px 0 0; text-align: right; }
+.footer-legal a { color: var(--muted); }
+.form-note a { color: inherit; }
+
+.prose h2 { font-size: 1.2rem; margin-top: 2em; }
+.prose ul { padding-left: 1.2em; }
+.prose li { margin-bottom: 0.5em; }

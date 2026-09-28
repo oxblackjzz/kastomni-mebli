@@ -1,0 +1,29 @@
+@using KastomniMebli.Web.Settings
+@inject IOptions<SiteSettings> SiteOptions
+
+@if (Site.PhoneHref is not null || Site.TelegramHref is not null)
+{
+    <div class="contact-buttons">
+        <p class="muted small">@Lead</p>
+        <div class="contact-row">
+            @if (Site.TelegramHref is { } tg)
+            {
+                <a class="btn btn-ghost btn-sm" href="@tg" rel="noopener">Telegram</a>
+            }
+            @if (Site.ViberHref is { } viber)
+            {
+                <a class="btn btn-ghost btn-sm" href="@viber">Viber</a>
+            }
+            @if (Site.PhoneHref is { } tel)
+            {
+                <a class="btn btn-ghost btn-sm mono" href="@tel">@Site.Phone</a>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Lead { get; set; } = "Або напишіть чи зателефонуйте:";
+
+    private SiteSettings Site => SiteOptions.Value;
+}

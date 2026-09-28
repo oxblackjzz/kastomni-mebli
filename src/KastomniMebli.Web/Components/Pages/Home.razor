@@ -1,10 +1,14 @@
 @page "/"
+@using System.Text.Json
 @inject IOptions<SiteSettings> SiteOptions
 
 <PageTitle>@Site.Brand — корпусні меблі на замовлення, @(Site.Areas.FirstOrDefault() ?? "")</PageTitle>
-<HeadContent>
-    <meta name="description" content="Шафи-купе, гардеробні, кухні, передпокої під ваш розмір. Заміряємо, креслимо до міліметра, виготовляємо й встановлюємо. @Site.AreasText." />
-</HeadContent>
+<SeoMeta Title="@($"{Site.Brand} — корпусні меблі під ваш розмір")"
+         Description="@($"Шафи-купе, гардеробні, кухні, передпокої під ваш розмір. Заміряємо, креслимо до міліметра, виготовляємо й встановлюємо. {Site.AreasText}.")"
+         Path="/">
+    @* Розмітка «місцевий бізнес» — Google краще показує сайт у пошуку за містом. *@
+    <script type="application/ld+json">@((MarkupString)BusinessJson)</script>
+</SeoMeta>
 
 <Hero />
 <Services />
@@ -20,4 +24,29 @@
     private string? Result { get; set; }
 
     private SiteSettings Site => SiteOptions.Value;
+
+    private string BusinessJson
+    {
+        get
+        {
+            var data = new Dictionary<string, object?>
+            {
+                ["@context"] = "https://schema.org",
+                ["@type"] = "HomeAndConstructionBusiness",
+                ["name"] = Site.Brand,
+                ["description"] = "Корпусні меблі на замовлення: шафи-купе, гардеробні, кухні, передпокої. Замір, креслення, виготовлення, монтаж.",
+                ["areaServed"] = Site.Areas.Select(a => new Dictionary<string, string> { ["@type"] = "Place", ["name"] = a }).ToList(),
+            };
+            if (Site.AbsoluteUrl("/") is { } url)
+            {
+                data["url"] = url;
+                data["image"] = Site.AbsoluteUrl("/og.png");
+            }
+            if (PhoneNumber.TryNormalize(Site.Phone, out var phone))
+                data["telephone"] = phone;
+            // "</" у JSON усередині <script> — не даємо закрити тег.
+            return JsonSerializer.Serialize(data, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping })
+                .Replace("</", "<\\/");
+        }
+    }
 }

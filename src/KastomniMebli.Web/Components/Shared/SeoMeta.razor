@@ -1,0 +1,41 @@
+@using KastomniMebli.Web.Settings
+@inject IOptions<SiteSettings> SiteOptions
+
+@* Опис для Google і картка-превʼю, коли посилання кидають у Telegram / Viber / Facebook. *@
+<HeadContent>
+    <meta name="description" content="@Description" />
+    @if (Site.AbsoluteUrl(Path) is { } url)
+    {
+        <link rel="canonical" href="@url" />
+        <meta property="og:url" content="@url" />
+    }
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="@Site.Brand" />
+    <meta property="og:locale" content="uk_UA" />
+    <meta property="og:title" content="@Title" />
+    <meta property="og:description" content="@Description" />
+    @if (ImageUrl is { } image)
+    {
+        <meta property="og:image" content="@image" />
+        <meta name="twitter:card" content="summary_large_image" />
+    }
+    @ChildContent
+</HeadContent>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+    [Parameter, EditorRequired] public string Description { get; set; } = "";
+
+    /// <summary>Шлях сторінки, напр. "/roboty".</summary>
+    [Parameter, EditorRequired] public string Path { get; set; } = "/";
+
+    /// <summary>Шлях картинки на сайті; типово — загальна картинка сайту.</summary>
+    [Parameter] public string Image { get; set; } = "/og.png";
+
+    /// <summary>Додаткові теги в head. Окремий HeadContent на сторінці не можна: спрацьовує лише один.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private SiteSettings Site => SiteOptions.Value;
+
+    private string? ImageUrl => Site.AbsoluteUrl(Image);
+}
