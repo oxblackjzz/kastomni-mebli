@@ -110,7 +110,7 @@ public sealed partial class SiteContentService(SiteSettingsAccessor accessor, Se
         if (errors.Count > 0)
             throw new CrmException(string.Join(" ", errors));
 
-        await settings.SetAsync(SiteSettingsAccessor.Key, JsonSerializer.Serialize(clean));
+        await settings.SetAsync(SiteSettingsAccessor.Key, JsonSerializer.Serialize(clean, SettingsService.Json));
         accessor.Set(clean);
     }
 

@@ -1,0 +1,94 @@
+@page "/crm/kalendar"
+@rendermode CrmRender.Mode
+@inherits CrmPageBase
+@inject OrderService OrderService
+@inject TimeProvider Time
+
+<PageTitle>Календар — CRM</PageTitle>
+
+<div class="crm-head">
+    <h1>Календар</h1>
+    <div class="month-nav">
+        <button type="button" class="icon-btn" @onclick="() => Shift(-7)" aria-label="Попередній тиждень">‹</button>
+        <button type="button" class="crm-link-btn small" @onclick="ThisWeek">сьогодні</button>
+        <span class="mono month-label">@Kyiv.Format(WeekStart)[..5] – @Kyiv.Format(WeekStart.AddDays(6))[..5]</span>
+        <button type="button" class="icon-btn" @onclick="() => Shift(7)" aria-label="Наступний тиждень">›</button>
+    </div>
+</div>
+<Alerts Error="@Error" />
+
+@if (!Loading)
+{
+    <div class="week">
+        @for (var i = 0; i < 7; i++)
+        {
+            var day = WeekStart.AddDays(i);
+            var events = Events.Where(e => DateOnly.FromDateTime(e.Local) == day).ToList();
+            <section class="day @(day == Today ? "today" : null) @(events.Count == 0 ? "empty" : null)">
+                <header class="day-head">
+                    <span>@Days[i]</span>
+                    <span class="mono muted">@Kyiv.Format(day)[..5]</span>
+                </header>
+                @foreach (var e in events)
+                {
+                    <a class="event event-@e.Kind" href="/crm/zamovlennia/@e.OrderId">
+                        <span class="event-top">
+                            <span class="mono">@(e.HasTime ? e.Local.ToString("HH:mm") : "")</span>
+                            <strong>@KindLabel(e.Kind)</strong>
+                            <span class="mono muted small">@e.Number</span>
+                        </span>
+                        <span>@e.ClientName</span>
+                        @if (e.Address is { } address)
+                        {
+                            <span class="muted small">@address</span>
+                        }
+                    </a>
+                }
+            </section>
+        }
+    </div>
+    @if (Events.Count == 0)
+    {
+        <p class="muted small">На цей тиждень замірів і монтажів не заплановано. Дати ставляться в картці замовлення.</p>
+    }
+}
+
+@code {
+    private static readonly string[] Days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
+
+    private DateOnly Today { get; set; }
+    private DateOnly WeekStart { get; set; }
+    private List<CalendarEvent> Events { get; set; } = [];
+
+    protected override async Task LoadAsync()
+    {
+        if (WeekStart == default)
+        {
+            Today = Kyiv.Today(Time);
+            WeekStart = Monday(Today);
+        }
+        Events = await OrderService.CalendarAsync(Me, WeekStart);
+    }
+
+    private static DateOnly Monday(DateOnly d) => d.AddDays(-(((int)d.DayOfWeek + 6) % 7));
+
+    private Task Shift(int days)
+    {
+        WeekStart = WeekStart.AddDays(days);
+        return Run(LoadAsync);
+    }
+
+    private Task ThisWeek()
+    {
+        WeekStart = Monday(Today);
+        return Run(LoadAsync);
+    }
+
+    private static string KindLabel(string kind) => kind switch
+    {
+        "measure" => "Замір",
+        "install" => "Монтаж",
+        "due" => "Термін B2B",
+        _ => kind,
+    };
+}

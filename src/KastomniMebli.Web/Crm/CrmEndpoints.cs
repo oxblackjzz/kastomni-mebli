@@ -22,6 +22,16 @@ public static class CrmEndpoints
             return Results.File(found.Path, found.File.ContentType, enableRangeProcessing: true);
         }).RequireAuthorization();
 
+        // Вивантаження місяця для бухгалтерії (CSV для Excel).
+        app.MapGet("/crm/eksport/{year:int}/{month:int}/{kind}.csv", async (int year, int month, string kind, HttpContext http, ExportService export) =>
+        {
+            if (CurrentUser.From(http.User) is not { CanSeeMoney: true } actor || month is < 1 or > 12 || year is < 2020 or > 2100
+                || !ExportService.Kinds.Contains(kind))
+                return Results.NotFound();
+            var bytes = await export.ExportAsync(actor, kind, year, month);
+            return Results.File(bytes, "text/csv; charset=utf-8", $"{kind}-{year}-{month:00}.csv");
+        }).RequireAuthorization();
+
         // Фото постів — публічно за випадковим ключем: Instagram і Facebook забирають їх за URL без входу.
         app.MapGet(Posting.PostMedia.PublicPrefix + "{key:regex(^[0-9a-f]{{32}}$)}.jpg", async (string key, HttpContext http, Posting.PostService posts) =>
         {

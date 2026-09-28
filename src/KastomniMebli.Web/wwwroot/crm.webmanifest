@@ -1,0 +1,15 @@
+{
+  "name": "Кастомні Меблі — CRM",
+  "short_name": "КМ CRM",
+  "description": "Замовлення, календар, гроші",
+  "lang": "uk",
+  "start_url": "/crm",
+  "scope": "/crm",
+  "display": "standalone",
+  "background_color": "#F2F3F0",
+  "theme_color": "#2C5A4C",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

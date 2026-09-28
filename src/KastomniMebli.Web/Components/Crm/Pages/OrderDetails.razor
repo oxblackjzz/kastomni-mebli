@@ -52,7 +52,7 @@ else if (Order is not null)
                 }
                 <label class="status-select">
                     <span class="sr-only">Змінити статус</span>
-                    <select value="@Order.Status" @onchange="e => SetStatus((string)e.Value!)">
+                    <select value="@(CancelPending ? OrderStatuses.Cancelled : Order.Status)" @onchange="e => OnStatusSelect((string)e.Value!)">
                         @foreach (var (key, label) in OrderStatuses.AllFor(Order.Kind))
                         {
                             <option value="@key">@label</option>
@@ -61,6 +61,30 @@ else if (Order is not null)
                 </label>
             }
         </div>
+        @if (CancelPending)
+        {
+            <div class="cancel-box">
+                <p><strong>Чому скасовуємо?</strong> Це потрапить у статистику втрачених клієнтів.</p>
+                <div class="chips">
+                    @foreach (var (key, label) in Catalog.CancelReasons)
+                    {
+                        <label class="chip">
+                            <input type="radio" name="cancel-reason" checked="@(CancelReason == key)" @onchange="() => CancelReason = key" />
+                            <span>@label</span>
+                        </label>
+                    }
+                </div>
+                <input type="text" placeholder="Уточнення (необов'язково)" @bind="CancelNote" maxlength="500" />
+                <div class="form-row">
+                    <button type="button" class="btn btn-primary btn-sm" disabled="@(CancelReason is null)" @onclick="ConfirmCancel">Скасувати замовлення</button>
+                    <button type="button" class="btn btn-ghost btn-sm" @onclick="() => CancelPending = false">Не скасовувати</button>
+                </div>
+            </div>
+        }
+        @if (Order.Status == OrderStatuses.Cancelled && Order.CancelReason is { } reason)
+        {
+            <p class="muted small cancel-info">Причина: <strong>@Catalog.Label(Catalog.CancelReasons, reason)</strong>@(Order.CancelNote is null ? "" : " — " + Order.CancelNote)</p>
+        }
         <ol class="progress" aria-label="Етапи">
             @foreach (var (key, label) in OrderStatuses.FlowFor(Order.Kind))
             {
@@ -276,6 +300,14 @@ else if (Order is not null)
 
     <OrderFilesPanel Order="Order" Me="Me" OnChanged="ReloadAsync" />
 
+    @if (Me.CanSeeMoney && Audit.Count > 0)
+    {
+        <section class="panel">
+            <h2>Журнал змін грошей</h2>
+            <AuditList Entries="Audit" ShowOrder="false" />
+        </section>
+    }
+
     <section class="panel">
         <h2>Історія</h2>
         <ol class="history">
@@ -312,7 +344,38 @@ else if (Order is not null)
         Order = await OrderService.GetAsync(Me, Id);
         Money = Me.CanSeeMoney ? await OrderService.MoneyAsync(Order) : null;
         if (Me.CanSeeMoney)
+        {
             Users = await UserService.ListAsync(activeOnly: true);
+            Audit = await OrderService.AuditAsync(Me, Id, take: 100);
+        }
+    }
+
+    private List<AuditEntry> Audit { get; set; } = [];
+    private bool CancelPending { get; set; }
+    private string? CancelReason { get; set; }
+    private string? CancelNote { get; set; }
+
+    private Task OnStatusSelect(string status)
+    {
+        if (status == OrderStatuses.Cancelled)
+        {
+            CancelPending = true;
+            CancelReason = null;
+            CancelNote = null;
+            return Task.CompletedTask;
+        }
+        CancelPending = false;
+        return SetStatus(status);
+    }
+
+    private async Task ConfirmCancel()
+    {
+        if (await Run(async () =>
+            {
+                await OrderService.ChangeStatusAsync(Me, Id, OrderStatuses.Cancelled, CancelReason, CancelNote);
+                await LoadAsync();
+            }, "Замовлення скасовано."))
+            CancelPending = false;
     }
 
     private Task ReloadAsync() => Run(LoadAsync);

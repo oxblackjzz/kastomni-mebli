@@ -44,6 +44,10 @@ public class Order
     public DateTime? CompletedAt { get; set; }
     public DateTime? CancelledAt { get; set; }
 
+    /// <summary>Чому скасовано — ключ із <see cref="Crm.Catalog.CancelReasons"/>, плюс довільне уточнення.</summary>
+    public string? CancelReason { get; set; }
+    public string? CancelNote { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

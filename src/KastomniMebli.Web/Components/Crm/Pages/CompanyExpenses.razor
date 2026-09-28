@@ -1,0 +1,104 @@
+@page "/crm/vytraty"
+@rendermode CrmRender.Mode
+@attribute [Authorize(Roles = Roles.MoneyViewers)]
+@inherits CrmPageBase
+@inject CompanyExpenseService Expenses
+@inject TimeProvider Time
+
+<PageTitle>Загальні витрати — CRM</PageTitle>
+
+<div class="crm-head">
+    <h1>Загальні витрати</h1>
+    <div class="month-nav">
+        <button type="button" class="icon-btn" @onclick="() => Shift(-1)" aria-label="Попередній місяць">‹</button>
+        <span class="mono month-label">@($"{Month:00}.{Year}")</span>
+        <button type="button" class="icon-btn" @onclick="() => Shift(1)" aria-label="Наступний місяць">›</button>
+    </div>
+</div>
+<p class="muted small">Те, що не належить конкретному замовленню. «Реклама» рахується на дашборді проти грошей із сайту.</p>
+<Alerts Error="@Error" Notice="@Notice" />
+
+<section class="panel">
+    <h2>Додати</h2>
+    <div class="inline-form">
+        <select @bind="Input.Kind" aria-label="Категорія">
+            @foreach (var (key, label) in Catalog.CompanyExpenseCategories)
+            {
+                <option value="@key">@label</option>
+            }
+        </select>
+        <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="Сума" @bind="Input.Amount" aria-label="Сума" />
+        <input type="date" @bind="Input.Date" aria-label="Дата" />
+        <input type="text" placeholder="Що саме (напр. «Instagram, кухні»)" @bind="Input.Note" maxlength="500" aria-label="Примітка" />
+        <button type="button" class="btn btn-primary btn-sm" @onclick="Add">Додати</button>
+    </div>
+</section>
+
+@if (!Loading)
+{
+    <section class="panel">
+        <div class="panel-head">
+            <h2>За місяць</h2>
+            <span class="mono">@Kyiv.Money(Items.Sum(e => e.Amount))</span>
+        </div>
+        @if (Items.Count == 0)
+        {
+            <p class="muted small">Витрат немає.</p>
+        }
+        else
+        {
+            <ul class="mlist">
+                @foreach (var e in Items)
+                {
+                    <li>
+                        <span class="mono small">@Kyiv.Format(e.SpentOn)</span>
+                        <span>@Catalog.Label(Catalog.CompanyExpenseCategories, e.Category)@(e.Note is null ? "" : " · " + e.Note)</span>
+                        <span class="mono">@Kyiv.Money(e.Amount)</span>
+                        <button type="button" class="icon-btn" title="Видалити" @onclick="() => Delete(e)">×</button>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+}
+
+@code {
+    private int Year { get; set; }
+    private int Month { get; set; }
+    private List<CompanyExpense> Items { get; set; } = [];
+    private MoneyInput Input { get; set; } = new() { Kind = Catalog.AdvertisingCategory };
+
+    protected override async Task LoadAsync()
+    {
+        if (Year == 0)
+        {
+            var today = Kyiv.Today(Time);
+            (Year, Month) = (today.Year, today.Month);
+            Input.Date = today;
+        }
+        Items = await Expenses.ListAsync(Me, Year, Month);
+    }
+
+    private Task Shift(int months)
+    {
+        var d = new DateOnly(Year, Month, 1).AddMonths(months);
+        (Year, Month) = (d.Year, d.Month);
+        return Run(LoadAsync);
+    }
+
+    private async Task Add()
+    {
+        if (await Run(async () =>
+            {
+                await Expenses.AddAsync(Me, Input);
+                await LoadAsync();
+            }, "Додано."))
+            Input = new MoneyInput { Kind = Input.Kind, Date = Input.Date };
+    }
+
+    private Task Delete(CompanyExpense e) => Run(async () =>
+    {
+        await Expenses.DeleteAsync(Me, e.Id);
+        await LoadAsync();
+    });
+}

@@ -679,3 +679,45 @@ body.crm {
     z-index: 5;
 }
 @media (min-width: 900px) { .sticky-save { bottom: 12px; } }
+
+/* ---------- Журнал, скасування ---------- */
+
+.audit { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.audit li { padding: 8px 0; border-bottom: 1px solid var(--line); display: grid; gap: 2px; }
+.audit-head { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.audit li.removal .audit-head strong { color: var(--danger); }
+.cancel-box {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 12px;
+    border: 1px solid var(--danger);
+    background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+}
+.cancel-box p { margin: 0; }
+.cancel-info { margin: 10px 0 0; }
+.lost-label { font-size: 0.85rem; }
+.funnel-row:has(.lost-label) { grid-template-columns: 11em 1fr 3em 0; }
+
+/* ---------- Календар ---------- */
+
+.week { display: grid; gap: 8px; }
+@media (min-width: 1000px) { .week { grid-template-columns: repeat(7, 1fr); align-items: start; } }
+.day { background: var(--surface); border: 1px solid var(--line); padding: 8px; display: grid; gap: 6px; }
+.day.today { border-color: var(--accent); box-shadow: inset 0 3px 0 var(--accent); }
+@media (max-width: 999px) { .day.empty { padding: 6px 8px; } .day.empty .day-head { opacity: .6; } }
+.day-head { display: flex; justify-content: space-between; font-weight: 600; font-size: 0.9rem; }
+.event {
+    display: grid;
+    gap: 2px;
+    padding: 8px;
+    border-left: 3px solid var(--line);
+    background: var(--bg);
+    color: var(--ink);
+    text-decoration: none;
+}
+.event:hover { background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.event-measure { border-left-color: var(--oak); }
+.event-install { border-left-color: var(--accent); }
+.event-due { border-left-color: var(--warn); }
+.event-top { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }

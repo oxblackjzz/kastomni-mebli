@@ -15,7 +15,7 @@
         <button type="button" class="icon-btn" @onclick="() => Shift(1)" aria-label="Наступний місяць">›</button>
     </div>
 </div>
-<Alerts Error="@Error" />
+<Alerts Error="@Error" Notice="@Notice" />
 
 @if (Report is { } r)
 {
@@ -29,6 +29,20 @@
             за весь час — <span class="mono">@Kyiv.Money(site.IncomeAllTime)</span> ·
             заявок із сайту цього місяця — <span class="mono">@site.Leads</span>, договорів із них — <span class="mono">@site.Contracts</span>
         </span>
+        @if (r.Ads.Spent > 0)
+        {
+            <span class="muted small">
+                реклама за місяць — <span class="mono">@Kyiv.Money(r.Ads.Spent)</span>
+                @if (r.Ads.CostPerLead is { } cpl)
+                {
+                    <text> · одна заявка — <span class="mono">@Kyiv.Money(cpl)</span></text>
+                }
+                @if (r.Ads.Return is { } ret)
+                {
+                    <text> · на 1 грн реклами — <span class="mono">@ret.ToString("0.#", Kyiv.Culture) грн</span> оплат</text>
+                }
+            </span>
+        }
     </section>
 
     <section class="panel">
@@ -90,6 +104,7 @@
         <div class="tiles">
             <div class="tile"><span class="tile-label">Виручка</span><span class="tile-value">@Kyiv.Money(r.Cash.Income)</span></div>
             <div class="tile"><span class="tile-label">Витрати</span><span class="tile-value">@Kyiv.Money(r.Cash.Expenses)</span></div>
+            <div class="tile"><span class="tile-label">Загальні витрати</span><span class="tile-value">@Kyiv.Money(r.Cash.CompanyExpenses)</span></div>
             <div class="tile"><span class="tile-label">Виплачено часток</span><span class="tile-value">@Kyiv.Money(r.Cash.SharesPaid)</span></div>
             <div class="tile tile-accent"><span class="tile-label">Залишилось</span><span class="tile-value">@Kyiv.Money(r.Cash.Net)</span></div>
         </div>
@@ -117,7 +132,7 @@
             <div class="table-wrap">
                 <table class="crm-table">
                     <thead>
-                        <tr><th>Хто</th><th>Заробив у місяці</th><th>Виплачено в місяці</th><th>Винні (завершені)</th><th>Нараховується (в роботі)</th></tr>
+                        <tr><th>Хто</th><th>Заробив у місяці</th><th>Виплачено в місяці</th><th>Винні (завершені)</th><th>Нараховується (в роботі)</th><th></th></tr>
                     </thead>
                     <tbody>
                         @foreach (var p in r.People)
@@ -128,6 +143,20 @@
                                 <td class="mono">@Kyiv.Money(p.PaidInMonth)</td>
                                 <td class="mono @(p.Owed > 0 ? "warn" : null)">@Kyiv.Money(p.Owed)</td>
                                 <td class="mono muted">@Kyiv.Money(p.Accruing)</td>
+                                <td>
+                                    @if (p.Owed > 0)
+                                    {
+                                        @if (ConfirmPayUser == p.UserId)
+                                        {
+                                            <button type="button" class="btn btn-primary btn-sm" @onclick="() => PayAll(p)">Так, виплатити @Kyiv.Money(p.Owed)</button>
+                                            <button type="button" class="crm-link-btn small" @onclick="() => ConfirmPayUser = null">ні</button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" class="btn btn-ghost btn-sm" @onclick="() => ConfirmPayUser = p.UserId">Виплатити все</button>
+                                        }
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -157,6 +186,53 @@
                     }
                 </tbody>
             </table>
+        </div>
+    </section>
+
+    @if (r.CompanyExpensesByCategory.Count > 0)
+    {
+        <section class="panel">
+            <div class="panel-head"><h2>Загальні витрати</h2><a class="crm-link-btn" href="/crm/vytraty">усі →</a></div>
+            <ul class="mlist">
+                @foreach (var (_, label, amount) in r.CompanyExpensesByCategory)
+                {
+                    <li><span></span><span>@label</span><span class="mono">@Kyiv.Money(amount)</span><span></span></li>
+                }
+            </ul>
+        </section>
+    }
+
+    <section class="panel">
+        <h2>Чому втрачаємо клієнтів</h2>
+        @if (r.Lost.Count == 0)
+        {
+            <p class="muted small">Цього місяця скасованих замовлень немає.</p>
+        }
+        else
+        {
+            <div class="funnel">
+                @foreach (var l in r.Lost)
+                {
+                    var max = r.Lost.Max(x => x.Count);
+                    <div class="funnel-row">
+                        <span class="funnel-label lost-label">@l.Label</span>
+                        <span class="funnel-track"><span class="funnel-bar" style="width:@((l.Count * 100m / max).ToString("0", System.Globalization.CultureInfo.InvariantCulture))%"></span></span>
+                        <span class="mono funnel-num">@l.Count</span>
+                        <span></span>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="panel">
+        <h2>Вивантаження за @MonthName.ToLowerInvariant()</h2>
+        <p class="muted small">CSV відкривається в Excel. Для бухгалтерії.</p>
+        <div class="contact-row">
+            @foreach (var (kind, label) in Exports)
+            {
+                <a class="btn btn-ghost btn-sm" href="/crm/eksport/@Year/@Month/@(kind).csv" download>@label</a>
+            }
         </div>
     </section>
 
@@ -198,6 +274,30 @@
     private int Year { get; set; }
     private int Month { get; set; }
     private MonthReport? Report { get; set; }
+    private int? ConfirmPayUser { get; set; }
+
+    [Inject] private OrderService Orders { get; set; } = null!;
+
+    private static readonly (string Kind, string Label)[] Exports =
+    [
+        ("oplaty", "Оплати"),
+        ("vytraty", "Витрати"),
+        ("chastky", "Виплати часток"),
+        ("zamovlennia", "Замовлення"),
+    ];
+
+    private async Task PayAll(PersonReport p)
+    {
+        ConfirmPayUser = null;
+        (int Count, decimal Total) result = default;
+        await Run(async () =>
+        {
+            result = await Orders.PayAllOwedAsync(Me, p.UserId, Kyiv.Today(Time));
+            await LoadAsync();
+        });
+        if (Error is null)
+            Notice = $"{p.Name}: виплачено {Kyiv.Money(result.Total)} ({result.Count} част.)";
+    }
 
     private static readonly string[] Months =
         ["Січень", "Лютий", "Березень", "Квітень", "Травень", "Червень", "Липень", "Серпень", "Вересень", "Жовтень", "Листопад", "Грудень"];

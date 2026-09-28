@@ -33,6 +33,12 @@ public sealed class SettingsService(IDbContextFactory<AppDbContext> dbs)
 
     private const string B2bPricingKey = "b2b_pricing";
 
+    /// <summary>JSON у налаштуваннях: кирилиця як є, а не \uXXXX (читабельно й у 6 разів коротше).</summary>
+    public static readonly System.Text.Json.JsonSerializerOptions Json = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
     public async Task<B2b.B2bPricing> GetB2bPricingAsync()
     {
         var json = await GetAsync(B2bPricingKey);
@@ -57,7 +63,7 @@ public sealed class SettingsService(IDbContextFactory<AppDbContext> dbs)
             throw new CrmException("Ціни не можуть бути від'ємними.");
         pricing.FixedPrices = pricing.FixedPrices.Where(p => !string.IsNullOrWhiteSpace(p.Item)).ToList();
         pricing.Note = string.IsNullOrWhiteSpace(pricing.Note) ? null : pricing.Note.Trim();
-        await SetAsync(B2bPricingKey, System.Text.Json.JsonSerializer.Serialize(pricing));
+        await SetAsync(B2bPricingKey, System.Text.Json.JsonSerializer.Serialize(pricing, Json));
     }
 
     public async Task<string?> GetAsync(string key)

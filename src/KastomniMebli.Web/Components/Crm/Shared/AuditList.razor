@@ -1,0 +1,28 @@
+<ul class="audit">
+    @foreach (var a in Entries)
+    {
+        <li class="@(AuditActions.IsRemoval(a.Action) ? "removal" : null)">
+            <div class="audit-head">
+                <span class="mono small">@Kyiv.Format(a.At)</span>
+                <strong>@AuditActions.Label(a.Action)</strong>
+                @if (a.Amount is { } amount)
+                {
+                    <span class="mono">@Kyiv.Money(amount)</span>
+                }
+            </div>
+            <div class="small">
+                <span class="muted">@a.UserName</span>
+                @if (ShowOrder && a.OrderId is { } orderId)
+                {
+                    <span> · <a href="/crm/zamovlennia/@orderId">замовлення</a></span>
+                }
+                <span> · @a.Details</span>
+            </div>
+        </li>
+    }
+</ul>
+
+@code {
+    [Parameter, EditorRequired] public List<AuditEntry> Entries { get; set; } = [];
+    [Parameter] public bool ShowOrder { get; set; } = true;
+}

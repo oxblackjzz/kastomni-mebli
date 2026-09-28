@@ -15,6 +15,11 @@
         <link rel="stylesheet" href="@Assets["crm.css"]" />
         <meta name="robots" content="noindex, nofollow" />
         <meta name="theme-color" content="#2C5A4C" />
+        @* Іконка CRM на головному екрані телефона — відкривається як окремий застосунок. *@
+        <link rel="manifest" href="/crm.webmanifest" />
+        <link rel="apple-touch-icon" href="@Assets["icon-192.png"]" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="КМ CRM" />
     }
     <link rel="icon" href="@Assets["favicon.svg"]" type="image/svg+xml" />
     <HeadOutlet />

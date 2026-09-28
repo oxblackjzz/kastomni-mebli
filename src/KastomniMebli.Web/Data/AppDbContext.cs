@@ -21,6 +21,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
     public DbSet<PortfolioWork> PortfolioWorks => Set<PortfolioWork>();
     public DbSet<PortfolioPhoto> PortfolioPhotos => Set<PortfolioPhoto>();
+    public DbSet<AuditEntry> AuditLog => Set<AuditEntry>();
+    public DbSet<CompanyExpense> CompanyExpenses => Set<CompanyExpense>();
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<PostPhoto> PostPhotos => Set<PostPhoto>();
     public DbSet<PostTarget> PostTargets => Set<PostTarget>();
@@ -80,6 +82,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Status).HasMaxLength(32).IsRequired();
             e.Property(x => x.Source).HasMaxLength(32).IsRequired();
             e.Property(x => x.Channel).HasMaxLength(100);
+            e.Property(x => x.CancelReason).HasMaxLength(24);
+            e.Property(x => x.CancelNote).HasMaxLength(500);
             e.Property(x => x.Campaign).HasMaxLength(100);
             e.Property(x => x.Address).HasMaxLength(300);
             e.Property(x => x.Comment).HasMaxLength(4000);
@@ -155,7 +159,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.HasKey(x => x.Key);
             e.Property(x => x.Key).HasMaxLength(64);
-            e.Property(x => x.Value).HasMaxLength(4000).IsRequired();
+            // Без обмеження: тут JSON (тексти сайту, ціни B2B), він може бути великим.
+            e.Property(x => x.Value).IsRequired();
         });
 
         b.Entity<DataProtectionKey>(e =>
@@ -179,6 +184,25 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.ThumbPath).HasMaxLength(300).IsRequired();
             e.Property(x => x.Caption).HasMaxLength(300);
             e.HasOne<PortfolioWork>().WithMany(w => w.Photos).HasForeignKey(x => x.WorkId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<AuditEntry>(e =>
+        {
+            e.ToTable("audit_log");
+            e.Property(x => x.UserName).HasMaxLength(80).IsRequired();
+            e.Property(x => x.Action).HasMaxLength(32).IsRequired();
+            e.Property(x => x.Details).HasMaxLength(1000).IsRequired();
+            e.Property(x => x.Amount).HasPrecision(12, 2);
+            e.HasIndex(x => x.At);
+            e.HasIndex(x => x.OrderId);
+        });
+
+        b.Entity<CompanyExpense>(e =>
+        {
+            e.Property(x => x.Category).HasMaxLength(16).IsRequired();
+            e.Property(x => x.Amount).HasPrecision(12, 2);
+            e.Property(x => x.Note).HasMaxLength(500);
+            e.HasIndex(x => x.SpentOn);
         });
 
         b.Entity<Post>(e =>

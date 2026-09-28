@@ -1,0 +1,32 @@
+@page "/crm/zhurnal"
+@rendermode CrmRender.Mode
+@attribute [Authorize(Roles = Roles.MoneyViewers)]
+@inherits CrmPageBase
+@inject OrderService OrderService
+
+<PageTitle>Журнал змін грошей — CRM</PageTitle>
+
+<div class="crm-head"><h1>Журнал змін грошей</h1></div>
+<p class="muted small">Хто, коли й що змінив в оплатах, витратах, частках і сумах договорів. Записи не редагуються й не видаляються.</p>
+<Alerts Error="@Error" />
+
+@if (Loading)
+{
+    <p class="muted">Завантаження…</p>
+}
+else if (Entries.Count == 0)
+{
+    <div class="crm-empty"><p>Змін ще не було.</p></div>
+}
+else
+{
+    <section class="panel">
+        <AuditList Entries="Entries" />
+    </section>
+}
+
+@code {
+    private List<AuditEntry> Entries { get; set; } = [];
+
+    protected override async Task LoadAsync() => Entries = await OrderService.AuditAsync(Me, take: 500);
+}

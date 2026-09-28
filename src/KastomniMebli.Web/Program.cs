@@ -105,6 +105,8 @@ builder.Services.AddScoped<IPostChannel>(sp => sp.GetRequiredService<FacebookCha
 builder.Services.AddScoped<IPostChannel>(sp => sp.GetRequiredService<InstagramChannel>());
 builder.Services.AddHostedService<PostPublisher>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<CompanyExpenseService>();
+builder.Services.AddScoped<ExportService>();
 builder.Services.AddScoped<CrmNotifier>();
 builder.Services.AddScoped<ILeadNotifier, TelegramNotifier>();
 builder.Services.AddHostedService<ReminderService>();
@@ -199,7 +201,20 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapGet("/healthz", () => Results.Text("ok"));
+// Для моніторингу (UptimeRobot тощо): «ok» лише якщо жива й база.
+app.MapGet("/healthz", async (AppDbContext db, CancellationToken ct) =>
+{
+    try
+    {
+        return await db.Database.CanConnectAsync(ct)
+            ? Results.Text("ok")
+            : Results.Text("db unavailable", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+    catch (Exception)
+    {
+        return Results.Text("db unavailable", statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+});
 app.MapLeadEndpoints();
 app.MapSeoEndpoints();
 KastomniMebli.Web.B2b.B2bEndpoints.MapB2bEndpoints(app);

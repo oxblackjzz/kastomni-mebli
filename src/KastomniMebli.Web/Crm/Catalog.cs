@@ -64,11 +64,77 @@ public static class Catalog
         ("other", "Інше"),
     ];
 
+    public static readonly IReadOnlyList<(string Key, string Label)> CancelReasons =
+    [
+        ("expensive", "Дорого"),
+        ("competitor", "Пішли до інших"),
+        ("no_answer", "Не відповідає"),
+        ("postponed", "Відклали"),
+        ("not_our", "Не наш профіль"),
+        ("spam", "Спам / помилкова заявка"),
+        ("other", "Інше"),
+    ];
+
+    /// <summary>Загальні витрати (не на конкретне замовлення).</summary>
+    public static readonly IReadOnlyList<(string Key, string Label)> CompanyExpenseCategories =
+    [
+        (AdvertisingCategory, "Реклама"),
+        ("tools", "Інструмент"),
+        ("fuel", "Пальне / дорога"),
+        ("rent", "Оренда"),
+        ("services", "Сервіси, зв'язок"),
+        ("other", "Інше"),
+    ];
+
+    public const string AdvertisingCategory = "ads";
+
     public static string Label(IReadOnlyList<(string Key, string Label)> list, string? key) =>
         list.FirstOrDefault(x => x.Key == key).Label ?? key ?? "";
 
     public static bool Has(IReadOnlyList<(string Key, string Label)> list, string? key) =>
         list.Any(x => x.Key == key);
+}
+
+public static class AuditActions
+{
+    public const string PaymentAdded = "payment_added";
+    public const string PaymentDeleted = "payment_deleted";
+    public const string ExpenseAdded = "expense_added";
+    public const string ExpenseDeleted = "expense_deleted";
+    public const string ShareAdded = "share_added";
+    public const string ShareChanged = "share_changed";
+    public const string ShareDeleted = "share_deleted";
+    public const string SharePaid = "share_paid";
+    public const string ShareUnpaid = "share_unpaid";
+    public const string TemplateApplied = "template_applied";
+    public const string ContractChanged = "contract_changed";
+    public const string Cancelled = "cancelled";
+    public const string CompanyExpenseAdded = "company_exp_added";
+    public const string CompanyExpenseDeleted = "company_exp_deleted";
+
+    public static readonly IReadOnlyList<(string Key, string Label)> All =
+    [
+        (PaymentAdded, "Оплату додано"),
+        (PaymentDeleted, "Оплату видалено"),
+        (ExpenseAdded, "Витрату додано"),
+        (ExpenseDeleted, "Витрату видалено"),
+        (ShareAdded, "Частку додано"),
+        (ShareChanged, "Частку змінено"),
+        (ShareDeleted, "Частку видалено"),
+        (SharePaid, "Частку виплачено"),
+        (ShareUnpaid, "Виплату скасовано"),
+        (TemplateApplied, "Частки за шаблоном"),
+        (ContractChanged, "Сума договору"),
+        (Cancelled, "Замовлення скасовано"),
+        (CompanyExpenseAdded, "Загальну витрату додано"),
+        (CompanyExpenseDeleted, "Загальну витрату видалено"),
+    ];
+
+    public static string Label(string key) => Catalog.Label(All, key);
+
+    /// <summary>Дії, що зменшують гроші або скасовують — підсвічуються в журналі.</summary>
+    public static bool IsRemoval(string key) =>
+        key is PaymentDeleted or ExpenseDeleted or ShareDeleted or ShareUnpaid or CompanyExpenseDeleted;
 }
 
 public static class ShareBasis

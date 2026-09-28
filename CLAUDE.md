@@ -33,6 +33,15 @@
 - Meta: застосунок Business у режимі Development, Standard access, токен System User «Never» — App Review не потрібен (лише власні акаунти).
 - TikTok (досліджено 2026-09-27): Direct Post без аудиту — лише приватні пости, а аудит TikTok забороняє для «утиліт публікації у власні акаунти». Реальний шлях — Upload/inbox (`video.upload`, `post_mode=MEDIA_UPLOAD`, фото лише PULL_FROM_URL з підтвердженого URL-префікса, JPEG ≤1080p, ≤5 чернеток на добу): сервер кладе чернетку, людина публікує в застосунку TikTok. Потрібні: developer-застосунок, Login Kit (OAuth, access 24 год / refresh 365 днів), сторінки Privacy/Terms, верифікація URL, app review. Не реалізовано — чекає рішення власника.
 
+## Покращення (2026-09-28)
+
+- SEO: `Components/Shared/SeoMeta.razor` (description, canonical, og:*) — **на сторінці лише один HeadContent** (другий затирає перший), додаткові теги — дочірнім вмістом SeoMeta. `/robots.txt`, `/sitemap.xml` (`Settings/SeoEndpoints.cs`), JSON-LD HomeAndConstructionBusiness на головній, `/og.png`. Політика конфіденційності `/konfidentsiinist` + згода під формами. Кнопки Telegram/Viber (`ContactButtons`).
+- Мітки: `wwwroot/js/attribution.js` (перший візит у localStorage → приховані поля форм) → `Leads/Attribution.cs` → `leads.utm_*`, `orders.channel/campaign`. Дашборд: `SiteChannels`, `AdsReport` (реклама з загальних витрат категорії `ads`).
+- Сайт із CRM: `Settings/SiteContent.cs` — власна реалізація `IOptions<SiteSettings>` (конфіг + JSON `site_content` у `settings`), зміни діють одразу. `settings.value` — без обмеження довжини; JSON пишеться з `SettingsService.Json` (кирилиця без \uXXXX — інакше в 6 разів довше).
+- Облік: `audit_log` (лише додається; `OrderService.Audit` у тій самій транзакції), `PayAllOwedAsync`, `orders.cancel_reason/cancel_note` (`Catalog.CancelReasons`), `company_expenses` (`CompanyExpenseService`), CSV-вивантаження `ExportService` (BOM, «;», кома, захист від формул).
+- Календар `/crm/kalendar` (`OrderService.CalendarAsync`), PWA-маніфест `/crm.webmanifest`, `/healthz` перевіряє БД.
+- Урок: тести на EF InMemory не ловлять обмеження довжини колонок — критичні форми перевіряти на справжньому Postgres (портативний у scratchpad).
+
 ## CRM (етап 2)
 
 - Усе в одному застосунку: `/crm`. Сторінки CRM — Interactive Server без пререндеру (`CrmRender.Mode`), `blazor.web.js` підключається лише на `/crm` (App.razor), лендінг лишається статичним.

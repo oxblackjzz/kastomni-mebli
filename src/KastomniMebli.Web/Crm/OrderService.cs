@@ -69,6 +69,10 @@ public sealed class MoneyInput
     public string? Note { get; set; }
 }
 
+/// <summary>Подія календаря: Kind = measure | install | due (термін B2B, без часу).</summary>
+public sealed record CalendarEvent(DateTime Local, bool HasTime, string Kind, int OrderId, string Number, string ClientName,
+    string? Phone, string? Address, string Status);
+
 public sealed record ClientListItem(int Id, string Name, string? Phone, string? Address, string Source, int OrdersCount, int? LastOrderId);
 
 public sealed class OrderService(
@@ -340,7 +344,11 @@ public sealed class OrderService(
         order.Address = Blank(input.Address);
         order.Comment = Blank(input.Comment);
         order.Source = input.Source;
-        order.ContractAmount = input.ContractAmount is null ? null : OrderFinance.Round(input.ContractAmount.Value);
+        var contract = input.ContractAmount is null ? (decimal?)null : OrderFinance.Round(input.ContractAmount.Value);
+        if (contract != order.ContractAmount)
+            Audit(db, actor, order.Id, AuditActions.ContractChanged,
+                $"{Money(order.ContractAmount)} → {Money(contract)}", contract);
+        order.ContractAmount = contract;
         order.MeasureDate = input.MeasureDateLocal is { } m ? Kyiv.ToUtc(m) : null;
         order.InstallDate = input.InstallDateLocal is { } i ? Kyiv.ToUtc(i) : null;
         order.DueDate = input.DueDate;
@@ -375,8 +383,11 @@ public sealed class OrderService(
         await db.SaveChangesAsync();
     }
 
-    public async Task ChangeStatusAsync(CurrentUser actor, int id, string status)
+    /// <param name="cancelReason">Для «Скасовано»: ключ із Catalog.CancelReasons (без нього — «Інше»).</param>
+    public async Task ChangeStatusAsync(CurrentUser actor, int id, string status, string? cancelReason = null, string? cancelNote = null)
     {
+        if (status == OrderStatuses.Cancelled && cancelReason is not null && !Catalog.Has(Catalog.CancelReasons, cancelReason))
+            throw new CrmException("Невідома причина скасування.");
         await using var db = await dbs.CreateDbContextAsync();
         var order = await db.Orders
             .Include(o => o.Client)
@@ -393,6 +404,18 @@ public sealed class OrderService(
             return;
 
         ApplyStatus(order, status, actor.Id, time.GetUtcNow().UtcDateTime);
+        if (status == OrderStatuses.Cancelled)
+        {
+            order.CancelReason = cancelReason ?? "other";
+            order.CancelNote = Blank(cancelNote) is { } note ? note[..Math.Min(note.Length, 500)] : null;
+            Audit(db, actor, order.Id, AuditActions.Cancelled,
+                Catalog.Label(Catalog.CancelReasons, order.CancelReason) + (order.CancelNote is null ? "" : ": " + order.CancelNote));
+        }
+        else
+        {
+            order.CancelReason = null;
+            order.CancelNote = null;
+        }
         await db.SaveChangesAsync();
 
         if (status == OrderStatuses.Installation)
@@ -464,7 +487,7 @@ public sealed class OrderService(
 
         await using var db = await dbs.CreateDbContextAsync();
         await RequireOrderAsync(db, orderId);
-        db.Payments.Add(new Payment
+        var payment = new Payment
         {
             OrderId = orderId,
             Kind = input.Kind,
@@ -474,7 +497,9 @@ public sealed class OrderService(
             Note = Blank(input.Note),
             CreatedByUserId = actor.Id,
             CreatedAt = time.GetUtcNow().UtcDateTime,
-        });
+        };
+        db.Payments.Add(payment);
+        Audit(db, actor, orderId, AuditActions.PaymentAdded, DescribePayment(payment), payment.Amount);
         await db.SaveChangesAsync();
     }
 
@@ -482,9 +507,16 @@ public sealed class OrderService(
     {
         RequireMoney(actor);
         await using var db = await dbs.CreateDbContextAsync();
-        db.Payments.RemoveRange(db.Payments.Where(p => p.Id == paymentId));
+        if (await db.Payments.FirstOrDefaultAsync(p => p.Id == paymentId) is not { } payment)
+            return;
+        db.Payments.Remove(payment);
+        Audit(db, actor, payment.OrderId, AuditActions.PaymentDeleted, DescribePayment(payment), payment.Amount);
         await db.SaveChangesAsync();
     }
+
+    private static string DescribePayment(Payment p) =>
+        $"{Catalog.Label(Catalog.PaymentKinds, p.Kind)}, {Catalog.Label(Catalog.PaymentMethods, p.Method)}, {Kyiv.Format(p.PaidOn)}" +
+        (p.Note is null ? "" : $" — {p.Note}");
 
     public async Task AddExpenseAsync(CurrentUser actor, int orderId, MoneyInput input)
     {
@@ -497,7 +529,7 @@ public sealed class OrderService(
 
         await using var db = await dbs.CreateDbContextAsync();
         await RequireOrderAsync(db, orderId);
-        db.Expenses.Add(new Expense
+        var expense = new Expense
         {
             OrderId = orderId,
             Category = input.Kind,
@@ -506,7 +538,9 @@ public sealed class OrderService(
             Note = Blank(input.Note),
             CreatedByUserId = actor.Id,
             CreatedAt = time.GetUtcNow().UtcDateTime,
-        });
+        };
+        db.Expenses.Add(expense);
+        Audit(db, actor, orderId, AuditActions.ExpenseAdded, DescribeExpense(expense), expense.Amount);
         await db.SaveChangesAsync();
     }
 
@@ -514,9 +548,15 @@ public sealed class OrderService(
     {
         RequireMoney(actor);
         await using var db = await dbs.CreateDbContextAsync();
-        db.Expenses.RemoveRange(db.Expenses.Where(e => e.Id == expenseId));
+        if (await db.Expenses.FirstOrDefaultAsync(e => e.Id == expenseId) is not { } expense)
+            return;
+        db.Expenses.Remove(expense);
+        Audit(db, actor, expense.OrderId, AuditActions.ExpenseDeleted, DescribeExpense(expense), expense.Amount);
         await db.SaveChangesAsync();
     }
+
+    private static string DescribeExpense(Expense e) =>
+        $"{Catalog.Label(Catalog.ExpenseCategories, e.Category)}, {Kyiv.Format(e.SpentOn)}" + (e.Note is null ? "" : $" — {e.Note}");
 
     // ---------- Частки ----------
 
@@ -526,20 +566,27 @@ public sealed class OrderService(
         ValidateShare(basis, value);
         await using var db = await dbs.CreateDbContextAsync();
         await RequireOrderAsync(db, orderId);
-        if (!await db.Users.AnyAsync(u => u.Id == userId))
-            throw new CrmException("Користувача не знайдено.");
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId) ?? throw new CrmException("Користувача не знайдено.");
         db.OrderShares.Add(new OrderShare { OrderId = orderId, UserId = userId, Basis = basis, Value = value });
+        Audit(db, actor, orderId, AuditActions.ShareAdded, $"{user.DisplayName}: {DescribeShare(basis, value)}");
         await db.SaveChangesAsync();
     }
+
+    private static string DescribeShare(string basis, decimal value) =>
+        basis == ShareBasis.Fixed ? Kyiv.Money(value) : $"{value.ToString("0.##", Kyiv.Culture)}% ({Catalog.Label(Catalog.ShareBases, basis)})";
 
     public async Task UpdateShareAsync(CurrentUser actor, int shareId, string basis, decimal value)
     {
         RequireMoney(actor);
         ValidateShare(basis, value);
         await using var db = await dbs.CreateDbContextAsync();
-        var share = await db.OrderShares.FirstOrDefaultAsync(s => s.Id == shareId) ?? throw new CrmException("Частку не знайдено.");
+        var share = await db.OrderShares.Include(s => s.User).FirstOrDefaultAsync(s => s.Id == shareId) ?? throw new CrmException("Частку не знайдено.");
         if (share.PaidAmount is not null)
             throw new CrmException("Частку вже виплачено — спершу скасуйте відмітку про виплату.");
+        if (share.Basis == basis && share.Value == value)
+            return;
+        Audit(db, actor, share.OrderId, AuditActions.ShareChanged,
+            $"{share.User.DisplayName}: {DescribeShare(share.Basis, share.Value)} → {DescribeShare(basis, value)}");
         share.Basis = basis;
         share.Value = value;
         await db.SaveChangesAsync();
@@ -549,10 +596,11 @@ public sealed class OrderService(
     {
         RequireMoney(actor);
         await using var db = await dbs.CreateDbContextAsync();
-        var share = await db.OrderShares.FirstOrDefaultAsync(s => s.Id == shareId) ?? throw new CrmException("Частку не знайдено.");
+        var share = await db.OrderShares.Include(s => s.User).FirstOrDefaultAsync(s => s.Id == shareId) ?? throw new CrmException("Частку не знайдено.");
         if (share.PaidAmount is not null)
             throw new CrmException("Частку вже виплачено — спершу скасуйте відмітку про виплату.");
         db.OrderShares.Remove(share);
+        Audit(db, actor, share.OrderId, AuditActions.ShareDeleted, $"{share.User.DisplayName}: {DescribeShare(share.Basis, share.Value)}");
         await db.SaveChangesAsync();
     }
 
@@ -561,25 +609,53 @@ public sealed class OrderService(
     {
         RequireMoney(actor);
         await using var db = await dbs.CreateDbContextAsync();
-        var share = await db.OrderShares.FirstOrDefaultAsync(s => s.Id == shareId) ?? throw new CrmException("Частку не знайдено.");
-        var order = await db.Orders.AsNoTracking()
-            .Include(o => o.Expenses)
-            .FirstAsync(o => o.Id == share.OrderId);
+        var share = await db.OrderShares.Include(s => s.User).FirstOrDefaultAsync(s => s.Id == shareId) ?? throw new CrmException("Частку не знайдено.");
+        if (share.PaidAmount is not null)
+            return;
         var materials = await settings.GetMaterialCategoriesAsync();
+        await PayShareAsync(db, actor, share, paidOn, materials);
+        await db.SaveChangesAsync();
+    }
+
+    private async Task PayShareAsync(AppDbContext db, CurrentUser actor, OrderShare share, DateOnly paidOn, IReadOnlyCollection<string> materials)
+    {
+        var order = await db.Orders.AsNoTracking().Include(o => o.Expenses).FirstAsync(o => o.Id == share.OrderId);
         var materialsSum = order.Expenses.Where(e => materials.Contains(e.Category)).Sum(e => e.Amount);
         share.PaidAmount = OrderFinance.ShareAmount(share.Basis, share.Value, order.ContractAmount ?? 0m, materialsSum);
         share.PaidOn = paidOn;
-        await db.SaveChangesAsync();
+        Audit(db, actor, share.OrderId, AuditActions.SharePaid, $"{share.User.DisplayName}, {order.Number}, {Kyiv.Format(paidOn)}", share.PaidAmount);
     }
 
     public async Task UnmarkSharePaidAsync(CurrentUser actor, int shareId)
     {
         RequireMoney(actor);
         await using var db = await dbs.CreateDbContextAsync();
-        var share = await db.OrderShares.FirstOrDefaultAsync(s => s.Id == shareId) ?? throw new CrmException("Частку не знайдено.");
+        var share = await db.OrderShares.Include(s => s.User).FirstOrDefaultAsync(s => s.Id == shareId) ?? throw new CrmException("Частку не знайдено.");
+        if (share.PaidAmount is null)
+            return;
+        Audit(db, actor, share.OrderId, AuditActions.ShareUnpaid, $"{share.User.DisplayName}, було виплачено {Kyiv.Format(share.PaidOn)}", share.PaidAmount);
         share.PaidAmount = null;
         share.PaidOn = null;
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// «Виплатити все»: усі невиплачені частки людини в завершених замовленнях (як «Винні» на дашборді)
+    /// позначаються виплаченими на дату. Повертає кількість і суму.
+    /// </summary>
+    public async Task<(int Count, decimal Total)> PayAllOwedAsync(CurrentUser actor, int userId, DateOnly paidOn)
+    {
+        RequireMoney(actor);
+        await using var db = await dbs.CreateDbContextAsync();
+        var shares = await db.OrderShares.Include(s => s.User)
+            .Where(s => s.UserId == userId && s.PaidAmount == null)
+            .Where(s => db.Orders.Any(o => o.Id == s.OrderId && o.Status == OrderStatuses.Done && o.Kind == OrderKinds.Retail))
+            .ToListAsync();
+        var materials = await settings.GetMaterialCategoriesAsync();
+        foreach (var share in shares)
+            await PayShareAsync(db, actor, share, paidOn, materials);
+        await db.SaveChangesAsync();
+        return (shares.Count, shares.Sum(s => s.PaidAmount ?? 0));
     }
 
     /// <summary>Замінити невиплачені частки замовлення на поточний шаблон.</summary>
@@ -596,8 +672,67 @@ public sealed class OrderService(
             if (!paidUsers.Contains(t.UserId))
                 db.OrderShares.Add(new OrderShare { OrderId = orderId, UserId = t.UserId, Basis = t.Basis, Value = t.Value });
         }
+        Audit(db, actor, orderId, AuditActions.TemplateApplied, "Невиплачені частки замінено на шаблон");
         await db.SaveChangesAsync();
     }
+
+    // ---------- Календар ----------
+
+    /// <summary>Заміри, монтажі й терміни B2B на 7 днів від weekStart (київський час). Монтажник — лише свої.</summary>
+    public async Task<List<CalendarEvent>> CalendarAsync(CurrentUser actor, DateOnly weekStart)
+    {
+        var fromUtc = Kyiv.ToUtc(weekStart.ToDateTime(TimeOnly.MinValue));
+        var toUtc = Kyiv.ToUtc(weekStart.AddDays(7).ToDateTime(TimeOnly.MinValue));
+        var weekEnd = weekStart.AddDays(7);
+
+        await using var db = await dbs.CreateDbContextAsync();
+        var q = db.Orders.AsNoTracking().Include(o => o.Client)
+            .Where(o => o.Status != OrderStatuses.Cancelled)
+            .Where(o => (o.MeasureDate >= fromUtc && o.MeasureDate < toUtc) || (o.InstallDate >= fromUtc && o.InstallDate < toUtc)
+                        || (o.DueDate >= weekStart && o.DueDate < weekEnd));
+        if (!actor.CanSeeMoney)
+            q = q.Where(o => o.Assignees.Any(a => a.UserId == actor.Id));
+        var orders = await q.ToListAsync();
+
+        var events = new List<CalendarEvent>();
+        foreach (var o in orders)
+        {
+            var address = o.Address ?? o.Client.Address;
+            if (o.MeasureDate is { } m && m >= fromUtc && m < toUtc)
+                events.Add(new CalendarEvent(Kyiv.ToLocal(m), true, "measure", o.Id, o.Number, o.Client.Name, o.Client.Phone, address, o.Status));
+            if (o.InstallDate is { } i && i >= fromUtc && i < toUtc)
+                events.Add(new CalendarEvent(Kyiv.ToLocal(i), true, "install", o.Id, o.Number, o.Client.Name, o.Client.Phone, address, o.Status));
+            if (actor.CanSeeMoney && o.DueDate is { } d && d >= weekStart && d < weekEnd && OrderStatuses.IsOpen(o.Status))
+                events.Add(new CalendarEvent(d.ToDateTime(TimeOnly.MinValue), false, "due", o.Id, o.Number, o.Client.Name, o.Client.Phone, null, o.Status));
+        }
+        return events.OrderBy(e => e.Local).ThenBy(e => e.Number).ToList();
+    }
+
+    // ---------- Журнал ----------
+
+    public async Task<List<AuditEntry>> AuditAsync(CurrentUser actor, int? orderId = null, int take = 300)
+    {
+        RequireMoney(actor);
+        await using var db = await dbs.CreateDbContextAsync();
+        var q = db.AuditLog.AsNoTracking();
+        if (orderId is not null)
+            q = q.Where(a => a.OrderId == orderId);
+        return await q.OrderByDescending(a => a.At).ThenByDescending(a => a.Id).Take(take).ToListAsync();
+    }
+
+    private void Audit(AppDbContext db, CurrentUser actor, int? orderId, string action, string details, decimal? amount = null) =>
+        db.AuditLog.Add(new AuditEntry
+        {
+            At = time.GetUtcNow().UtcDateTime,
+            UserId = actor.Id,
+            UserName = actor.Name,
+            OrderId = orderId,
+            Action = action,
+            Details = details.Length > 1000 ? details[..1000] : details,
+            Amount = amount,
+        });
+
+    private static string Money(decimal? amount) => amount is null ? "—" : Kyiv.Money(amount.Value);
 
     public static void ValidateShare(string basis, decimal value)
     {

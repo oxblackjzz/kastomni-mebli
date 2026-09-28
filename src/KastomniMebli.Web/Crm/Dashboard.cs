@@ -12,10 +12,22 @@ public sealed record FunnelReport(int Leads, int Measured, int Contracts)
 }
 
 /// <summary>Рух грошей у місяці: що реально прийшло і пішло.</summary>
-public sealed record CashReport(decimal Income, decimal Expenses, decimal SharesPaid)
+public sealed record CashReport(decimal Income, decimal Expenses, decimal SharesPaid, decimal CompanyExpenses = 0)
 {
-    public decimal Net => Income - Expenses - SharesPaid;
+    public decimal Net => Income - Expenses - CompanyExpenses - SharesPaid;
 }
+
+/// <summary>Реклама проти грошей із сайту за місяць.</summary>
+public sealed record AdsReport(decimal Spent, int SiteLeads, decimal SiteIncome)
+{
+    /// <summary>Скільки коштувала одна заявка з сайту.</summary>
+    public decimal? CostPerLead => SiteLeads == 0 || Spent == 0 ? null : Math.Round(Spent / SiteLeads, 0);
+
+    /// <summary>Скільки гривень повернулось на гривню реклами (по оплатах місяця).</summary>
+    public decimal? Return => Spent == 0 ? null : Math.Round(SiteIncome / Spent, 1);
+}
+
+public sealed record LostReason(string Reason, string Label, int Count);
 
 /// <summary>Замовлення, завершені в місяці: договори й прибуток по них.</summary>
 public sealed record CompletedReport(int Count, decimal ContractsTotal, decimal Received, decimal Expenses, decimal Shares, decimal Profit);
@@ -42,7 +54,10 @@ public sealed record MonthReport(
     IReadOnlyList<SourceReport> Sources,
     IReadOnlyList<ClientDebt> ClientDebts,
     B2bReport B2b,
-    IReadOnlyList<ChannelReport> SiteChannels);
+    IReadOnlyList<ChannelReport> SiteChannels,
+    AdsReport Ads,
+    IReadOnlyList<LostReason> Lost,
+    IReadOnlyList<(string Category, string Label, decimal Amount)> CompanyExpensesByCategory);
 
 /// <summary>
 /// Звіт за місяць (київський час). Правила:
@@ -56,8 +71,9 @@ public sealed record MonthReport(
 public static class DashboardCalc
 {
     public static MonthReport Build(IReadOnlyList<Order> allOrders, IReadOnlyList<User> users, int year, int month,
-        IReadOnlyCollection<string> materialCategories)
+        IReadOnlyCollection<string> materialCategories, IReadOnlyList<CompanyExpense>? companyExpenses = null)
     {
+        companyExpenses ??= [];
         bool InMonth(DateTime? utc) => utc is { } d && Kyiv.ToLocal(d) is var l && l.Year == year && l.Month == month;
         bool DayInMonth(DateOnly? d) => d is { } x && x.Year == year && x.Month == month;
 
@@ -84,7 +100,8 @@ public static class DashboardCalc
         var cash = new CashReport(
             OrderFinance.Received(orders.SelectMany(o => o.Payments).Where(p => DayInMonth(p.PaidOn))),
             orders.SelectMany(o => o.Expenses).Where(e => DayInMonth(e.SpentOn)).Sum(e => e.Amount),
-            orders.SelectMany(o => o.Shares).Where(s => DayInMonth(s.PaidOn)).Sum(s => s.PaidAmount ?? 0));
+            orders.SelectMany(o => o.Shares).Where(s => DayInMonth(s.PaidOn)).Sum(s => s.PaidAmount ?? 0),
+            companyExpenses.Where(e => DayInMonth(e.SpentOn)).Sum(e => e.Amount));
 
         var completed = orders.Where(o => o.Status == OrderStatuses.Done && InMonth(o.CompletedAt)).ToList();
         var completedReport = new CompletedReport(
@@ -150,7 +167,28 @@ public static class DashboardCalc
             .OrderByDescending(c => c.IncomeInMonth).ThenByDescending(c => c.Leads).ThenBy(c => c.Channel)
             .ToList();
 
-        return new MonthReport(year, month, funnel, cash, completedReport, people, sources, debts, b2b, siteChannels);
+        var siteSource = sources.First(s => s.Source == "site");
+        var ads = new AdsReport(
+            companyExpenses.Where(e => e.Category == Catalog.AdvertisingCategory && DayInMonth(e.SpentOn)).Sum(e => e.Amount),
+            siteSource.Leads,
+            siteSource.IncomeInMonth);
+
+        var lost = orders
+            .Where(o => o.Status == OrderStatuses.Cancelled && InMonth(o.CancelledAt))
+            .GroupBy(o => o.CancelReason ?? "other")
+            .Select(g => new LostReason(g.Key, Catalog.Label(Catalog.CancelReasons, g.Key), g.Count()))
+            .OrderByDescending(l => l.Count)
+            .ToList();
+
+        var companyByCategory = companyExpenses
+            .Where(e => DayInMonth(e.SpentOn))
+            .GroupBy(e => e.Category)
+            .Select(g => (g.Key, Catalog.Label(Catalog.CompanyExpenseCategories, g.Key), g.Sum(e => e.Amount)))
+            .OrderByDescending(x => x.Item3)
+            .ToList();
+
+        return new MonthReport(year, month, funnel, cash, completedReport, people, sources, debts, b2b, siteChannels,
+            ads, lost, companyByCategory);
     }
 }
 
@@ -168,6 +206,7 @@ public sealed class DashboardService(IDbContextFactory<AppDbContext> dbs, Settin
             .Include(o => o.Shares)
             .ToListAsync();
         var users = await db.Users.AsNoTracking().OrderBy(u => u.DisplayName).ToListAsync();
-        return DashboardCalc.Build(orders, users, year, month, await settings.GetMaterialCategoriesAsync());
+        var company = await db.CompanyExpenses.AsNoTracking().ToListAsync();
+        return DashboardCalc.Build(orders, users, year, month, await settings.GetMaterialCategoriesAsync(), company);
     }
 }
