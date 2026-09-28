@@ -10,7 +10,6 @@
                 @foreach (var (member, i) in SiteOptions.Value.Team.Select((m, i) => (m, i)))
                 {
                     <li class="card">
-                        <span class="card-code mono">@((i + 1).ToString("00"))</span>
                         <h3>@member.Role</h3>
                         @if (!string.IsNullOrWhiteSpace(member.Name))
                         {
