@@ -16,8 +16,8 @@
     --oak-light: #EBDCC8;
     --mirror: #DCE7E9;
     --danger: #A33A2B;
-    /* Клітинка зошита — блакитна, як у шкільному зошиті */
-    --grid: rgba(96, 150, 200, 0.13);
+    /* Клітинка зошита — чорна, напівпрозора (щоб текст читався) */
+    --grid: rgba(0, 0, 0, 0.16);
 
     --font-head: "Unbounded", "Geologica", system-ui, sans-serif;
     --font-body: "Geologica", system-ui, -apple-system, "Segoe UI", sans-serif;
