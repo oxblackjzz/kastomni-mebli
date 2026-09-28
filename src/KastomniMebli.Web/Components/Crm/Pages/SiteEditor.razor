@@ -1,0 +1,124 @@
+@page "/crm/sait"
+@rendermode CrmRender.Mode
+@attribute [Authorize(Roles = Roles.MoneyViewers)]
+@inherits CrmPageBase
+@using KastomniMebli.Web.Settings
+@inject SiteContentService Content
+
+<PageTitle>Сайт — CRM</PageTitle>
+
+<div class="crm-head">
+    <h1>Сайт</h1>
+    <a class="btn btn-ghost btn-sm" href="/" target="_blank" rel="noopener">Відкрити сайт ↗</a>
+</div>
+<p class="muted small">Зміни з'являються на сайті одразу після збереження.</p>
+<Alerts Error="@Error" Notice="@Notice" />
+
+@if (!Loading)
+{
+    <section class="panel">
+        <h2>Контакти</h2>
+        <div class="grid2">
+            <label class="crm-field">
+                <span>Телефон (на сайті, для дзвінка й Viber)</span>
+                <input type="tel" inputmode="tel" @bind="Phone" placeholder="+380 67 123 45 67" />
+            </label>
+            <label class="crm-field">
+                <span>Telegram (нік без @@)</span>
+                <input type="text" @bind="Telegram" placeholder="kastomni_mebli" />
+            </label>
+        </div>
+        <label class="crm-field">
+            <span>Де працюємо — по одному в рядку</span>
+            <textarea rows="3" @bind="AreasText"></textarea>
+        </label>
+    </section>
+
+    <section class="panel">
+        <h2>Команда (ролі на сайті)</h2>
+        @foreach (var (member, i) in Team.Select((m, i) => (m, i)))
+        {
+            <div class="edit-block">
+                <div class="grid2">
+                    <label class="crm-field"><span>Роль</span><input type="text" @bind="member.Role" maxlength="60" /></label>
+                    <label class="crm-field"><span>Ім'я (необов'язково)</span><input type="text" @bind="member.Name" maxlength="60" /></label>
+                </div>
+                <label class="crm-field"><span>Опис</span><textarea rows="2" @bind="member.Description" maxlength="300"></textarea></label>
+                <div class="edit-actions">
+                    <button type="button" class="icon-btn" title="Вище" disabled="@(i == 0)" @onclick="() => Move(Team, i, -1)">↑</button>
+                    <button type="button" class="icon-btn" title="Нижче" disabled="@(i == Team.Count - 1)" @onclick="() => Move(Team, i, 1)">↓</button>
+                    <button type="button" class="icon-btn" title="Прибрати" @onclick="() => Team.RemoveAt(i)">×</button>
+                </div>
+            </div>
+        }
+        <button type="button" class="crm-link-btn" @onclick="() => Team.Add(new TeamRole())">+ додати роль</button>
+    </section>
+
+    <section class="panel">
+        <h2>Часті питання</h2>
+        @foreach (var (item, i) in Faq.Select((f, i) => (f, i)))
+        {
+            <div class="edit-block">
+                <label class="crm-field"><span>Питання</span><input type="text" @bind="item.Question" maxlength="200" /></label>
+                <label class="crm-field"><span>Відповідь</span><textarea rows="3" @bind="item.Answer" maxlength="1500"></textarea></label>
+                <div class="edit-actions">
+                    <button type="button" class="icon-btn" title="Вище" disabled="@(i == 0)" @onclick="() => Move(Faq, i, -1)">↑</button>
+                    <button type="button" class="icon-btn" title="Нижче" disabled="@(i == Faq.Count - 1)" @onclick="() => Move(Faq, i, 1)">↓</button>
+                    <button type="button" class="icon-btn" title="Прибрати" @onclick="() => Faq.RemoveAt(i)">×</button>
+                </div>
+            </div>
+        }
+        @if (Faq.Count < SiteContentService.FaqMax)
+        {
+            <button type="button" class="crm-link-btn" @onclick="() => Faq.Add(new FaqItem())">+ додати питання</button>
+        }
+        <p class="muted small">Не пишіть тут ціни, терміни чи гарантії, яких ви не готові дотримати.</p>
+    </section>
+
+    <div class="form-row sticky-save">
+        <button type="button" class="btn btn-primary" @onclick="Save">Зберегти все</button>
+        <button type="button" class="btn btn-ghost" @onclick="Reset">Повернути типові</button>
+    </div>
+}
+
+@code {
+    private string? Phone { get; set; }
+    private string? Telegram { get; set; }
+    private string AreasText { get; set; } = "";
+    private List<TeamRole> Team { get; set; } = [];
+    private List<FaqItem> Faq { get; set; } = [];
+
+    protected override Task LoadAsync()
+    {
+        var s = Content.Effective;
+        Phone = s.Phone;
+        Telegram = s.Telegram;
+        AreasText = string.Join("\n", s.Areas);
+        Team = s.Team.Select(t => new TeamRole { Role = t.Role, Description = t.Description, Name = t.Name }).ToList();
+        Faq = s.Faq.Select(f => new FaqItem { Question = f.Question, Answer = f.Answer }).ToList();
+        return Task.CompletedTask;
+    }
+
+    private Task Save() => Run(() => Content.SaveAsync(Me, new SiteContent
+    {
+        Phone = Phone ?? "",
+        Telegram = Telegram ?? "",
+        Areas = AreasText.Split('\n').ToList(),
+        Team = Team,
+        Faq = Faq,
+    }), "Збережено. Сайт уже оновився.");
+
+    private Task Reset() => Run(async () =>
+    {
+        await Content.ResetAsync(Me);
+        await LoadAsync();
+    }, "Повернуто типові значення.");
+
+    private static void Move<T>(List<T> list, int i, int direction)
+    {
+        var j = i + direction;
+        if (j < 0 || j >= list.Count)
+            return;
+        (list[i], list[j]) = (list[j], list[i]);
+    }
+}

@@ -31,6 +31,10 @@ builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddSingleton(HtmlEncoder.Create(UnicodeRanges.All));
 
 builder.Services.Configure<SiteSettings>(builder.Configuration.GetSection(SiteSettings.Section));
+// Контакти, райони, команда, FAQ можна змінити в CRM — поверх типових значень з конфігурації.
+builder.Services.AddSingleton<SiteSettingsAccessor>();
+builder.Services.AddSingleton<IOptions<SiteSettings>>(sp => sp.GetRequiredService<SiteSettingsAccessor>());
+builder.Services.AddScoped<SiteContentService>();
 builder.Services.Configure<LeadOptions>(builder.Configuration.GetSection(LeadOptions.Section));
 builder.Services.Configure<ProxyOptions>(builder.Configuration.GetSection(ProxyOptions.Section));
 builder.Services.Configure<FileStorageOptions>(builder.Configuration.GetSection(FileStorageOptions.Section));
@@ -168,6 +172,7 @@ using (var scope = app.Services.CreateScope())
     else
         await db.Database.EnsureCreatedAsync();
 
+    await scope.ServiceProvider.GetRequiredService<SiteSettingsAccessor>().LoadAsync(db);
     await scope.ServiceProvider.GetRequiredService<UserService>().EnsureAdminAsync(app.Configuration);
     await scope.ServiceProvider.GetRequiredService<OrderService>().BackfillLeadsAsync();
 }

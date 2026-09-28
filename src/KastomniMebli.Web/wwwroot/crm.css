@@ -664,3 +664,18 @@ body.crm {
 .status-failed { border-color: var(--danger); color: var(--danger); }
 .target-error { flex-basis: 100%; margin: 0; }
 .publish-row { margin-top: 12px; }
+
+/* ---------- Редактор сайту ---------- */
+
+.edit-block { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.edit-block:first-of-type { border-top: 1px solid var(--line); }
+.edit-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.sticky-save {
+    position: sticky;
+    bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 8px);
+    padding: 10px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    z-index: 5;
+}
+@media (min-width: 900px) { .sticky-save { bottom: 12px; } }
