@@ -48,7 +48,8 @@ public static class LeadEndpoints
 
         try
         {
-            var lead = await leads.SubmitAsync(result.Lead!, clientIp.Get(http), http.Request.Headers.UserAgent.ToString());
+            var lead = await leads.SubmitAsync(result.Lead!, clientIp.Get(http), http.Request.Headers.UserAgent.ToString(),
+                Attribution.From(form));
             return Success(http, lead.Name);
         }
         catch (Exception ex)

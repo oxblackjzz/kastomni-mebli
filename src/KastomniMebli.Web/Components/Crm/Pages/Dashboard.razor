@@ -32,6 +32,38 @@
     </section>
 
     <section class="panel">
+        <h2>Сайт: звідки приходять</h2>
+        <p class="muted small">
+            Канал — з мітки <span class="mono">utm_source</span> у рекламному посиланні або з сайту, звідки перейшли.
+            «direct» — набрали адресу, закладка чи месенджер без мітки.
+        </p>
+        @if (r.SiteChannels.Count == 0)
+        {
+            <p class="muted small">Заявок із сайту ще немає.</p>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="crm-table">
+                    <thead><tr><th>Канал</th><th>Заявок</th><th>Договорів</th><th>Гроші в місяці</th><th>Гроші за весь час</th></tr></thead>
+                    <tbody>
+                        @foreach (var c in r.SiteChannels)
+                        {
+                            <tr>
+                                <td class="mono">@c.Channel</td>
+                                <td class="mono">@c.Leads</td>
+                                <td class="mono">@c.Contracts</td>
+                                <td class="mono">@Kyiv.Money(c.IncomeInMonth)</td>
+                                <td class="mono">@Kyiv.Money(c.IncomeAllTime)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="panel">
         <h2>Заявки → замір → договір</h2>
         <p class="muted small">Замовлення, створені цього місяця, і скільки з них дійшло далі.</p>
         <div class="funnel">

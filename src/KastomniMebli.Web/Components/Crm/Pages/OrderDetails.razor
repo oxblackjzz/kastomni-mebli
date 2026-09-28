@@ -161,6 +161,10 @@ else if (Order is not null)
                 {
                     <div><dt>@(IsB2b ? "Ціна" : "Договір")</dt><dd class="mono">@(Order.ContractAmount is { } c ? Kyiv.Money(c) : "—")</dd></div>
                     <div><dt>Джерело</dt><dd>@Catalog.Label(Catalog.Sources, Order.Source)</dd></div>
+                    @if (Order.Channel is { } channel)
+                    {
+                        <div><dt>Канал</dt><dd class="mono">@channel@(Order.Campaign is null ? "" : " · " + Order.Campaign)</dd></div>
+                    }
                 }
                 <div><dt>Заявка</dt><dd class="mono">@Kyiv.Format(Order.CreatedAt)</dd></div>
                 @if (Order.ApprovedAt is { } approved)

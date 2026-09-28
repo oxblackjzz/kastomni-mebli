@@ -16,7 +16,7 @@ public sealed class LeadService(
     /// Ні збій CRM, ні збій Telegram не губить заявку: помилки — в лог (і в telegram_error),
     /// а замовлення для «загублених» заявок створиться при наступному старті (BackfillLeadsAsync).
     /// </summary>
-    public async Task<Lead> SubmitAsync(ValidLead input, string? ip, string? userAgent)
+    public async Task<Lead> SubmitAsync(ValidLead input, string? ip, string? userAgent, Attribution? attribution = null)
     {
         var lead = new Lead
         {
@@ -32,6 +32,10 @@ public sealed class LeadService(
             Status = LeadStatuses.New,
             IpHash = ClientIp.Hash(ip),
             UserAgent = userAgent is { Length: > 512 } ? userAgent[..512] : userAgent,
+            UtmSource = attribution?.Source,
+            UtmMedium = attribution?.Medium,
+            UtmCampaign = attribution?.Campaign,
+            Referrer = attribution?.Referrer,
         };
 
         // Токен запиту не передаємо: якщо клієнт закрив вкладку, заявка все одно має зберегтися.

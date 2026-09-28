@@ -32,6 +32,12 @@ public class Lead
     public string? IpHash { get; set; }
     public string? UserAgent { get; set; }
 
+    // Звідки прийшов (перший візит): мітки з посилання й сайт-реферер.
+    public string? UtmSource { get; set; }
+    public string? UtmMedium { get; set; }
+    public string? UtmCampaign { get; set; }
+    public string? Referrer { get; set; }
+
     public DateTime? TelegramSentAt { get; set; }
     public string? TelegramError { get; set; }
 }

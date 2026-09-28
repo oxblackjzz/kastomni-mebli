@@ -219,6 +219,9 @@ public sealed class OrderService(
             contract: null, leadId: lead.Id, actorId: null);
         order.CreatedAt = lead.CreatedAt;
         order.StatusHistory[0].ChangedAt = lead.CreatedAt;
+        var attribution = new Attribution(lead.UtmSource, lead.UtmMedium, lead.UtmCampaign, lead.Referrer);
+        order.Channel = attribution.Channel;
+        order.Campaign = lead.UtmCampaign;
         await db.SaveChangesAsync();
         return order.Id;
     }
@@ -241,14 +244,21 @@ public sealed class OrderService(
 
     /// <summary>Заявка з форми для меблярів → клієнт-мебляр + замовлення B2B «Нова».</summary>
     public async Task<Order> CreateB2bFromFormAsync(string name, string phone, string? telegram, IEnumerable<string> types,
-        DateOnly? dueDate, string? comment)
+        DateOnly? dueDate, string? comment, Attribution? attribution = null)
     {
         await using var db = await dbs.CreateDbContextAsync();
         var client = await FindOrCreateClientAsync(db, name, phone, address: null, source: "furniture_maker");
         if (telegram is not null)
             client.Telegram = telegram;
-        return await CreateCoreAsync(db, client, "furniture_maker", types, address: null, comment, contract: null,
+        var order = await CreateCoreAsync(db, client, "furniture_maker", types, address: null, comment, contract: null,
             leadId: null, actorId: null, kind: OrderKinds.B2b, dueDate: dueDate);
+        if (attribution is not null)
+        {
+            order.Channel = attribution.Channel;
+            order.Campaign = attribution.Campaign;
+            await db.SaveChangesAsync();
+        }
+        return order;
     }
 
     public static string NormalizeTelegram(string value) => value.Trim().TrimStart('@');

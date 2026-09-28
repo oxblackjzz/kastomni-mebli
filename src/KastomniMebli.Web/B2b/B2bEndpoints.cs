@@ -39,9 +39,12 @@ public static class B2bEndpoints
             return Results.BadRequest();
 
         B2bForm input;
+        Attribution attribution;
         try
         {
-            input = B2bForm.From(await http.Request.ReadFormAsync());
+            var form = await http.Request.ReadFormAsync();
+            input = B2bForm.From(form);
+            attribution = Attribution.From(form);
         }
         catch (Exception ex) when (ex is InvalidDataException or BadHttpRequestException or IOException)
         {
@@ -66,7 +69,7 @@ public static class B2bEndpoints
         Order order;
         try
         {
-            order = await orders.CreateB2bFromFormAsync(req.Name, req.Phone, req.Telegram, req.Types, req.Due, req.Comment);
+            order = await orders.CreateB2bFromFormAsync(req.Name, req.Phone, req.Telegram, req.Types, req.Due, req.Comment, attribution);
         }
         catch (Exception ex)
         {

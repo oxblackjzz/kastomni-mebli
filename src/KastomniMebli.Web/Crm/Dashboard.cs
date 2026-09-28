@@ -26,6 +26,9 @@ public sealed record SourceReport(string Source, string Label, int Leads, int Co
 
 public sealed record ClientDebt(int OrderId, string Number, string ClientName, decimal Contract, decimal Received, decimal Due);
 
+/// <summary>Заявки з сайту за каналом (instagram, google, direct…) — яка реклама приводить клієнтів і гроші.</summary>
+public sealed record ChannelReport(string Channel, int Leads, int Contracts, decimal IncomeInMonth, decimal IncomeAllTime);
+
 /// <summary>Креслення для меблярів — окремо: це дохід конструктора, не команди.</summary>
 public sealed record B2bReport(int NewInMonth, int OpenNow, int PaidInMonth, decimal IncomeInMonth, decimal IncomeAllTime, decimal Unpaid);
 
@@ -38,7 +41,8 @@ public sealed record MonthReport(
     IReadOnlyList<PersonReport> People,
     IReadOnlyList<SourceReport> Sources,
     IReadOnlyList<ClientDebt> ClientDebts,
-    B2bReport B2b);
+    B2bReport B2b,
+    IReadOnlyList<ChannelReport> SiteChannels);
 
 /// <summary>
 /// Звіт за місяць (київський час). Правила:
@@ -129,7 +133,24 @@ public static class DashboardCalc
             .OrderByDescending(d => d.Due)
             .ToList();
 
-        return new MonthReport(year, month, funnel, cash, completedReport, people, sources, debts, b2b);
+        var siteChannels = orders
+            .Where(o => o.Source == "site")
+            .GroupBy(o => o.Channel ?? Leads.Attribution.Direct)
+            .Select(g =>
+            {
+                var createdInMonth = g.Where(o => InMonth(o.CreatedAt)).ToList();
+                return new ChannelReport(
+                    g.Key,
+                    createdInMonth.Count,
+                    createdInMonth.Count(o => o.ApprovedAt is not null),
+                    OrderFinance.Received(g.SelectMany(o => o.Payments).Where(p => DayInMonth(p.PaidOn))),
+                    OrderFinance.Received(g.SelectMany(o => o.Payments)));
+            })
+            .Where(c => c.Leads > 0 || c.IncomeAllTime != 0)
+            .OrderByDescending(c => c.IncomeInMonth).ThenByDescending(c => c.Leads).ThenBy(c => c.Channel)
+            .ToList();
+
+        return new MonthReport(year, month, funnel, cash, completedReport, people, sources, debts, b2b, siteChannels);
     }
 }
 

@@ -40,6 +40,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.IpHash).HasMaxLength(16);
             e.Property(x => x.UserAgent).HasMaxLength(512);
             e.Property(x => x.TelegramError).HasMaxLength(500);
+            e.Property(x => x.UtmSource).HasMaxLength(100);
+            e.Property(x => x.UtmMedium).HasMaxLength(100);
+            e.Property(x => x.UtmCampaign).HasMaxLength(100);
+            e.Property(x => x.Referrer).HasMaxLength(100);
 
             e.HasIndex(x => x.CreatedAt);
             e.HasIndex(x => x.Status);
@@ -75,6 +79,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Kind).HasMaxLength(16).IsRequired();
             e.Property(x => x.Status).HasMaxLength(32).IsRequired();
             e.Property(x => x.Source).HasMaxLength(32).IsRequired();
+            e.Property(x => x.Channel).HasMaxLength(100);
+            e.Property(x => x.Campaign).HasMaxLength(100);
             e.Property(x => x.Address).HasMaxLength(300);
             e.Property(x => x.Comment).HasMaxLength(4000);
             e.Property(x => x.ContractAmount).HasPrecision(12, 2);

@@ -19,6 +19,11 @@ public class Order
     public List<string> FurnitureTypes { get; set; } = [];
     public string Status { get; set; } = Crm.OrderStatuses.New;
     public string Source { get; set; } = "";
+
+    /// <summary>Для заявок із сайту — канал (instagram, google, direct…) і рекламна кампанія.</summary>
+    public string? Channel { get; set; }
+    public string? Campaign { get; set; }
+
     public string? Address { get; set; }
 
     /// <summary>Сума договору, грн. Порожня, поки не домовились.</summary>

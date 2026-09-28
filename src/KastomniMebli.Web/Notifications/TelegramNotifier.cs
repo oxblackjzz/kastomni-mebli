@@ -105,6 +105,8 @@ public static class TelegramMessage
         Line(sb, "Район / місто", lead.Location);
         Line(sb, "Розміри", lead.Dimensions);
         Line(sb, "Коментар", lead.Comment);
+        var channel = new Attribution(lead.UtmSource, lead.UtmMedium, lead.UtmCampaign, lead.Referrer).Channel;
+        Line(sb, "Звідки", lead.UtmCampaign is null ? channel : $"{channel} · {lead.UtmCampaign}");
         Line(sb, "Час", local.ToString("dd.MM.yyyy HH:mm"));
         return sb.ToString().TrimEnd();
     }
